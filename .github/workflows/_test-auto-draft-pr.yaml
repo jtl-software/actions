@@ -32,18 +32,21 @@ jobs:
 
       - name: Compare YAML inline block to mirror script
         run: |
-          # Extract the inline run-block from the reusable workflow.
-          yq '.jobs.draft-pr.steps[0].run' .github/workflows/auto-draft-pr.yaml > /tmp/from-yaml.txt
+          # Extract the inline run-block from the reusable workflow. yq emits
+          # a trailing newline for `|`-style block scalars; capturing into a
+          # bash command-substitution strips trailing newlines automatically,
+          # so the two sides normalize identically.
+          yaml_content=$(yq '.jobs.draft-pr.steps[0].run' .github/workflows/auto-draft-pr.yaml)
 
           # Extract the mirrored block from the test helper, between the
           # MIRROR-START and MIRROR-END marker lines (markers themselves
           # excluded).
-          sed -n '/^# MIRROR-START:/,/^# MIRROR-END$/{//!p}' \
-            .github/scripts/test-auto-draft-pr/run-impl.ps1 > /tmp/from-mirror.txt
+          mirror_content=$(sed -n '/^# MIRROR-START:/,/^# MIRROR-END$/{//!p}' \
+            .github/scripts/test-auto-draft-pr/run-impl.ps1)
 
           # Both must match byte-for-byte. Any divergence means the inline
           # workflow script and the test mirror have drifted.
-          diff -u /tmp/from-yaml.txt /tmp/from-mirror.txt
+          diff -u <(printf '%s' "$yaml_content") <(printf '%s' "$mirror_content")
 
   test-protected-branch-skip:
     name: Protected branch => skip
