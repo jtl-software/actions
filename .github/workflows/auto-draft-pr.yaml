@@ -18,7 +18,7 @@
 #       tags-ignore: ['**']
 #   jobs:
 #     draft-pr:
-#       uses: jtl-software/jtl-public-gh-workflows/.github/workflows/auto-draft-pr.yaml@<sha>
+#       uses: jtl-software/actions/.github/workflows/auto-draft-pr.yaml@<sha>
 
 name: Auto draft PR (reusable)
 

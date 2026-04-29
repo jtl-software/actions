@@ -1,4 +1,4 @@
-# jtl-public-gh-workflows
+# jtl-software/actions
 
 Shared GitHub Actions composite actions and reusable workflows for JTL repositories that must be callable from **public** consumer repositories.
 
@@ -6,8 +6,8 @@ This is the public-visibility counterpart to the internal `jtl-software/jtl-plat
 
 Consumers reference public artefacts via:
 
-- `uses: jtl-software/jtl-public-gh-workflows/.github/actions/<name>@<ref>` (composite actions)
-- `uses: jtl-software/jtl-public-gh-workflows/.github/workflows/<name>.yaml@<ref>` (reusable workflows)
+- `uses: jtl-software/actions/.github/actions/<name>@<ref>` (composite actions)
+- `uses: jtl-software/actions/.github/workflows/<name>.yaml@<ref>` (reusable workflows)
 
 ## Naming conventions
 
