@@ -57,8 +57,47 @@ The reusable workflow declares its own `permissions:`, `if:` guard against the d
 Actions and workflows are referenced by:
 
 - `@main` - latest version (not recommended for production)
-- `@v1` / `@v2` - rolling major-version tags
-- `@<commit-sha>` - exact pin (recommended)
+- `@v1` / `@v2` - rolling major-version tags (auto-updated to the latest compatible release)
+- `@<commit-sha>` - exact pin (recommended for production callers; let dependabot bump the pin)
+
+Recommended consumer pattern:
+
+```yaml
+uses: jtl-software/jtl-public-gh-workflows/.github/workflows/auto-draft-pr.yaml@<sha> # v1.0.0
+```
+
+## Releasing
+
+Releases are tag-driven. Pushing a tag matching `v*` triggers
+`.github/workflows/release.yaml`, which creates the GitHub Release with
+auto-generated notes (PRs since the previous release, grouped by label
+according to `.github/release.yml`) and force-updates the rolling major
+tag (`v1`, `v2`, ...) for strict SemVer releases.
+
+Steps:
+
+```bash
+# Bump the version in your head, then:
+git tag v1.2.3
+git push origin v1.2.3
+```
+
+Or, if you also want the GitHub Release created from the local CLI rather than
+waiting for the workflow:
+
+```bash
+gh release create v1.2.3 --generate-notes
+```
+
+(The workflow runs idempotently in either case.)
+
+Pre-release tags (`v1.0.0-rc.1`, `v2.0.0-beta.3`, ...) are detected by the
+hyphen, marked as pre-release, and do **not** roll the major tag.
+
+PRs should carry one of the labels listed in `.github/release.yml`
+(`enhancement`, `bug`, `breaking-change`, `documentation`, `chore`,
+`dependencies`, ...) so the auto-generated notes group them under the right
+heading.
 
 ## Testing
 

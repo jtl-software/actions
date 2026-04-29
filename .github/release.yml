@@ -1,0 +1,40 @@
+# Configures GitHub's auto-generated release notes (used by
+# `softprops/action-gh-release` with `generate_release_notes: true`).
+# Pull requests are grouped into the categories below by their labels;
+# PRs without any matching label fall into "Other Changes".
+# Reference: https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes
+
+changelog:
+  exclude:
+    labels:
+      - skip-changelog
+      - duplicate
+      - invalid
+      - wontfix
+  categories:
+    - title: Breaking Changes
+      labels:
+        - breaking-change
+        - semver-major
+    - title: Features
+      labels:
+        - enhancement
+        - feature
+        - semver-minor
+    - title: Bug Fixes
+      labels:
+        - bug
+        - bugfix
+        - semver-patch
+    - title: Documentation
+      labels:
+        - documentation
+        - docs
+    - title: Maintenance
+      labels:
+        - chore
+        - dependencies
+        - github-actions
+    - title: Other Changes
+      labels:
+        - '*'

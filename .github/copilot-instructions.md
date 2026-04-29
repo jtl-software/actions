@@ -72,3 +72,16 @@ Key behaviour:
 ## Versioning
 
 Public artefacts are referenced by `@main` (latest), `@v1` / `@v2` (rolling major-version tags), or `@<sha>` (exact pin). Production callers should pin to `@<sha>` and let dependabot bump the pin.
+
+## Releases
+
+Tag-driven via `.github/workflows/release.yaml`. Pushing a `v*` tag triggers `softprops/action-gh-release` with `generate_release_notes: true` (PRs since the previous release, grouped by label according to `.github/release.yml`) and force-updates the rolling major tag (`v1`, `v2`, ...) for strict SemVer tags. Pre-release tags (`vX.Y.Z-rc.N`, `vX.Y.Z-beta.N`) are detected by the hyphen, marked as pre-release, and do not roll the major tag.
+
+Tag bump and Push are manual:
+
+```bash
+git tag v1.2.3
+git push origin v1.2.3
+```
+
+PRs should carry one of the changelog labels (`enhancement`, `bug`, `breaking-change`, `documentation`, `chore`, `dependencies`, ...) so the auto-generated notes group them correctly. PRs without a recognised label fall into the "Other Changes" section.

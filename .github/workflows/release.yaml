@@ -1,0 +1,84 @@
+# Runs whenever a `v*` tag is pushed. Two jobs:
+#
+# 1. `create-release` produces a GitHub Release for the tag with auto-generated
+#    notes (PRs since the previous release, grouped by label according to
+#    `.github/release.yml`).
+# 2. `update-major-tag` force-moves the rolling major-version tag (`v1`, `v2`,
+#    ...) to the same commit so consumers that pin `@v1` automatically pick up
+#    every compatible release. Skipped for pre-release tags such as
+#    `v1.0.0-rc.1`.
+#
+# Release process:
+#
+#   git tag v1.2.3
+#   git push origin v1.2.3
+#
+# Or in one command via gh CLI:
+#
+#   gh release create v1.2.3 --generate-notes
+#
+# (The `gh release create` path also creates the release directly; this
+# workflow then runs a second time and idempotently overwrites the release
+# notes - which is fine.)
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Create release with auto-generated notes
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
+        with:
+          generate_release_notes: true
+          # Pre-release detection: any tag containing a hyphen (v1.0.0-rc.1,
+          # v2.0.0-beta.3, ...) is treated as a pre-release and is excluded
+          # from "latest release" promotion.
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          make_latest: ${{ contains(github.ref_name, '-') && 'false' || 'legacy' }}
+
+  update-major-tag:
+    name: Roll major-version tag
+    runs-on: ubuntu-latest
+    needs: create-release
+    # Only roll the major tag for strict SemVer releases (vX.Y.Z), never for
+    # pre-releases (vX.Y.Z-rc.N) where the major tag should keep pointing at
+    # the previous stable release.
+    if: ${{ !contains(github.ref_name, '-') }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Force-update major tag
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          # Extract the leading "vN" (e.g. v1.2.3 -> v1, v2.0.0 -> v2).
+          if [[ ! "$TAG" =~ ^v([0-9]+)\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Tag '$TAG' is not strict SemVer (vX.Y.Z); skipping major-tag roll."
+            exit 0
+          fi
+          MAJOR="v${BASH_REMATCH[1]}"
+          echo "Rolling tag $MAJOR to the commit of $TAG."
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git tag --force "$MAJOR" "$TAG"
+          git push origin "$MAJOR" --force
