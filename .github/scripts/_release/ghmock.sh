@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# Installs a mock `gh` binary at /tmp/gh-mock/gh and registers /tmp/gh-mock
+# with $GITHUB_PATH so all subsequent steps in the same job use it.
+#
+# Behaviour is driven by environment variables set per test job:
+#
+#   MOCK_TAG_TYPE        "lightweight" (default) | "annotated"
+#   MOCK_MAJOR_EXISTS    "false" (default) | "true"
+#   MOCK_MAJOR_TAG_ERROR Non-empty string => the major-tag existence check fails
+#                        with this message on stderr (simulates 5xx / auth errors).
+#                        Takes precedence over MOCK_MAJOR_EXISTS.
+#   MOCK_TAG_SHA         40-char hex (default: aaaa0000...0000)
+#   MOCK_COMMIT_SHA      40-char hex returned after peeling (default: bbbb0000...0000)
+#                        Only relevant when MOCK_TAG_TYPE=annotated.
+
+set -euo pipefail
+
+mkdir -p /tmp/gh-mock
+
+cat > /tmp/gh-mock/gh << 'MOCK'
+#!/usr/bin/env bash
+set -euo pipefail
+
+MOCK_TAG_TYPE="${MOCK_TAG_TYPE:-lightweight}"
+MOCK_MAJOR_EXISTS="${MOCK_MAJOR_EXISTS:-false}"
+MOCK_MAJOR_TAG_ERROR="${MOCK_MAJOR_TAG_ERROR:-}"
+MOCK_TAG_SHA="${MOCK_TAG_SHA:-aaaa000000000000000000000000000000000000}"
+MOCK_COMMIT_SHA="${MOCK_COMMIT_SHA:-bbbb000000000000000000000000000000000000}"
+
+[[ "${1:-}" == "api" ]] || { echo "MOCK: unexpected gh subcommand: $*" >&2; exit 1; }
+shift
+
+METHOD="GET"
+ENDPOINT=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --method)        METHOD="$2"; shift 2 ;;
+    -f|--field)      shift 2 ;;
+    -F|--raw-field)  shift 2 ;;
+    --)              shift; break ;;
+    -*)              shift ;;
+    *)               [[ -z "$ENDPOINT" ]] && ENDPOINT="$1"; shift ;;
+  esac
+done
+
+case "$METHOD" in
+  GET)
+    case "$ENDPOINT" in
+      # Release tag ref: vX.Y.Z (two dots -> full SemVer)
+      *git/refs/tags/v*.*.*)
+        if [[ "$MOCK_TAG_TYPE" == "annotated" ]]; then
+          printf '{"object":{"sha":"%s","type":"tag"}}\n' "$MOCK_TAG_SHA"
+        else
+          printf '{"object":{"sha":"%s","type":"commit"}}\n' "$MOCK_TAG_SHA"
+        fi ;;
+      # Annotated tag object lookup (peel step)
+      *git/tags/*)
+        printf '{"object":{"sha":"%s","type":"commit"}}\n' "$MOCK_COMMIT_SHA" ;;
+      # Major tag existence check: vN (no dots)
+      *git/refs/tags/v*)
+        if [[ -n "$MOCK_MAJOR_TAG_ERROR" ]]; then
+          printf '%s\n' "$MOCK_MAJOR_TAG_ERROR" >&2; exit 1
+        elif [[ "$MOCK_MAJOR_EXISTS" == "true" ]]; then
+          printf '{"ref":"refs/tags/v1","object":{"sha":"%s"}}\n' "$MOCK_TAG_SHA"
+        else
+          printf '{"message":"Not Found","documentation_url":"https://docs.github.com/rest"}\n' >&2
+          exit 1
+        fi ;;
+      *) echo "MOCK: unhandled GET $ENDPOINT" >&2; exit 1 ;;
+    esac ;;
+  PATCH)
+    echo "MOCK_GH_PATCH: $ENDPOINT" >&2
+    printf '{"ref":"%s","object":{"sha":"%s"}}\n' "$ENDPOINT" "$MOCK_TAG_SHA" ;;
+  POST)
+    echo "MOCK_GH_POST: $ENDPOINT" >&2
+    printf '{"ref":"refs/tags/v1","object":{"sha":"%s"}}\n' "$MOCK_TAG_SHA" ;;
+  *) echo "MOCK: unhandled method $METHOD $ENDPOINT" >&2; exit 1 ;;
+esac
+MOCK
+
+chmod +x /tmp/gh-mock/gh
+# Register with $GITHUB_PATH so all subsequent steps in this job pick up the
+# mock instead of the real gh binary.
+echo "/tmp/gh-mock" >> "$GITHUB_PATH"

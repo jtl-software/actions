@@ -1,0 +1,153 @@
+# INTERNAL WORKFLOW - Not for external use.
+# Workflows prefixed with `_` are internal to this repository.
+#
+# Tests update-major-tag.ps1 against a mocked `gh` CLI. Four code paths:
+#   1. Non-SemVer tag -> skip (no API calls needed)
+#   2. Lightweight release tag, major tag absent -> POST (create)
+#   3. Annotated release tag, major tag present -> PATCH (update) + SHA peel
+#   4. API error other than 404 -> script exits non-zero
+
+name: Test _release
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-non-semver-skip:
+    name: Non-SemVer tag => skip
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts/_release
+
+      - name: Run with non-SemVer tag
+        # No mock gh installed: the script exits before any API call on this
+        # path. If a regression causes a gh call to happen, the step fails with
+        # an auth error from the real binary (GH_TOKEN: dummy), which is a clear
+        # signal that the validation guard was bypassed.
+        shell: pwsh
+        env:
+          GH_TOKEN: dummy
+          GITHUB_REPOSITORY: owner/repo
+        run: |
+          .github/scripts/_release/update-major-tag.ps1 -Tag 'not-a-semver' *>&1 |
+            Tee-Object -FilePath output.txt | Out-Null
+
+      - name: Assert
+        run: grep -q "does not match strict SemVer" output.txt
+
+  test-lightweight-tag-create:
+    name: Lightweight tag + major absent => POST
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts/_release
+
+      - name: Setup mock gh
+        run: bash .github/scripts/_release/ghmock.sh
+
+      - name: Run
+        shell: pwsh
+        env:
+          GH_TOKEN: dummy
+          GITHUB_REPOSITORY: owner/repo
+          MOCK_TAG_TYPE: lightweight
+          MOCK_MAJOR_EXISTS: 'false'
+        run: |
+          .github/scripts/_release/update-major-tag.ps1 -Tag 'v1.0.0' *>&1 |
+            Tee-Object -FilePath output.txt | Out-Null
+
+      - name: Assert
+        run: |
+          set -euo pipefail
+          grep -q "Rolling v1 to v1.0.0" output.txt
+          grep -q "Resolved commit:" output.txt
+          grep -q "Created v1 ->" output.txt
+          if grep -q "MOCK_GH_PATCH" output.txt; then
+            echo "Unexpected PATCH: major tag should have been created, not updated." >&2
+            exit 1
+          fi
+
+  test-annotated-tag-update:
+    name: Annotated tag + major present => peel + PATCH
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts/_release
+
+      - name: Setup mock gh
+        run: bash .github/scripts/_release/ghmock.sh
+
+      - name: Run
+        shell: pwsh
+        env:
+          GH_TOKEN: dummy
+          GITHUB_REPOSITORY: owner/repo
+          MOCK_TAG_TYPE: annotated
+          MOCK_MAJOR_EXISTS: 'true'
+          MOCK_TAG_SHA: aaaa000000000000000000000000000000000000
+          MOCK_COMMIT_SHA: bbbb000000000000000000000000000000000000
+        run: |
+          .github/scripts/_release/update-major-tag.ps1 -Tag 'v1.1.0' *>&1 |
+            Tee-Object -FilePath output.txt | Out-Null
+
+      - name: Assert
+        run: |
+          set -euo pipefail
+          # Annotated tag must be peeled: resolved SHA should be MOCK_COMMIT_SHA.
+          grep -q "Resolved commit: bbbb000000000000000000000000000000000000" output.txt
+          grep -q "Updated v1 ->" output.txt
+          if grep -q "MOCK_GH_POST" output.txt; then
+            echo "Unexpected POST: major tag exists and should have been patched." >&2
+            exit 1
+          fi
+
+  test-api-error-propagates:
+    name: Unexpected API error => non-zero exit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts/_release
+
+      - name: Setup mock gh (error injection)
+        run: bash .github/scripts/_release/ghmock.sh
+
+      - name: Run and expect failure
+        id: run
+        shell: pwsh
+        continue-on-error: true
+        env:
+          GH_TOKEN: dummy
+          GITHUB_REPOSITORY: owner/repo
+          # MOCK_MAJOR_TAG_ERROR causes the major-tag existence check to fail
+          # with a non-404 message, simulating a 5xx or auth error.
+          MOCK_MAJOR_TAG_ERROR: '{"message":"Internal Server Error"}'
+        run: |
+          .github/scripts/_release/update-major-tag.ps1 -Tag 'v1.0.0' *>&1 |
+            Tee-Object -FilePath output.txt | Out-Null
+          # Re-propagate the script's exit code; Out-Null at the end of the
+          # pipeline would otherwise always exit 0, masking a script failure.
+          exit $LASTEXITCODE
+
+      - name: Assert script failed and reported the error
+        run: |
+          set -euo pipefail
+          [[ "${{ steps.run.outcome }}" == "failure" ]] || {
+            echo "Expected script to fail but it succeeded." >&2; exit 1
+          }
+          grep -qi "Unexpected error" output.txt
