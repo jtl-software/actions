@@ -21,7 +21,7 @@ on:
 
 jobs:
   draft-pr:
-    uses: jtl-software/jtl-public-gh-workflows/.github/workflows/auto-draft-pr.yaml@v1
+    uses: jtl-software/actions/.github/workflows/auto-draft-pr.yaml@v1
 ```
 
 Pin to a SHA in production callers; let dependabot bump the pin.

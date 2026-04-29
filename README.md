@@ -1,8 +1,8 @@
-# ![JTL logo](https://avatars.githubusercontent.com/u/31404730?s=25&v=4) JTL Public GitHub Workflows
+# ![JTL logo](https://avatars.githubusercontent.com/u/31404730?s=25&v=4) JTL Actions
 
-Shared GitHub Actions composite actions and reusable workflows for JTL repositories that need to be referenced from **public** repositories.
+Shared GitHub Actions composite actions and reusable workflows for JTL repositories. This repository is **public** so consumer repositories of any visibility can reference its artefacts.
 
-This repository is the public-visibility counterpart to the internal `jtl-software/jtl-platform-gh-workflows`. GitHub only allows public repositories to consume reusable workflows and composite actions from `public` or `internal` source repositories. Anything that must be callable from a public repo (for example `connector-prestashop`, `connector-woocommerce3`) lives here.
+This is the public-visibility counterpart to the internal `jtl-software/jtl-platform-gh-workflows`. GitHub only allows public repositories to consume reusable workflows and composite actions from `public` or `internal` source repositories. Anything that must be callable from a public repo (for example `connector-prestashop`, `connector-woocommerce3`) lives here.
 
 ## Naming Convention
 
@@ -47,7 +47,7 @@ on:
 
 jobs:
   draft-pr:
-    uses: jtl-software/jtl-public-gh-workflows/.github/workflows/auto-draft-pr.yaml@v1
+    uses: jtl-software/actions/.github/workflows/auto-draft-pr.yaml@v1
 ```
 
 The reusable workflow declares its own `permissions:`, `if:` guard against the default branch, and `runs-on:`. The caller only supplies the trigger.
@@ -63,7 +63,7 @@ Actions and workflows are referenced by:
 Recommended consumer pattern:
 
 ```yaml
-uses: jtl-software/jtl-public-gh-workflows/.github/workflows/auto-draft-pr.yaml@<sha> # v1.0.0
+uses: jtl-software/actions/.github/workflows/auto-draft-pr.yaml@<sha> # v1.0.0
 ```
 
 ## Releasing
