@@ -1,0 +1,181 @@
+# INTERNAL WORKFLOW - Not for external use.
+# Workflows prefixed with `_` are internal to this repository.
+#
+# This workflow exercises `auto-draft-pr.yaml` against a mocked `gh` CLI.
+# A separate "drift detection" job verifies that the mirror script in
+# `.github/scripts/test-auto-draft-pr/run-impl.ps1` is byte-identical to
+# the inline `run:` block in the reusable workflow.
+
+name: Test auto-draft-pr
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift-detection:
+    name: Mirror sync (drift detection)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github/workflows/auto-draft-pr.yaml
+            .github/scripts/test-auto-draft-pr/run-impl.ps1
+
+      - name: Compare YAML inline block to mirror script
+        run: |
+          # Extract the inline run-block from the reusable workflow.
+          yq '.jobs.draft-pr.steps[0].run' .github/workflows/auto-draft-pr.yaml > /tmp/from-yaml.txt
+
+          # Extract the mirrored block from the test helper, between the
+          # MIRROR-START and MIRROR-END marker lines (markers themselves
+          # excluded).
+          sed -n '/^# MIRROR-START:/,/^# MIRROR-END$/{//!p}' \
+            .github/scripts/test-auto-draft-pr/run-impl.ps1 > /tmp/from-mirror.txt
+
+          # Both must match byte-for-byte. Any divergence means the inline
+          # workflow script and the test mirror have drifted.
+          diff -u /tmp/from-yaml.txt /tmp/from-mirror.txt
+
+  test-protected-branch-skip:
+    name: Protected branch => skip
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts/test-auto-draft-pr
+
+      - name: Setup mock gh
+        run: bash .github/scripts/test-auto-draft-pr/ghmock.sh
+
+      - name: Run with mocked gh
+        shell: pwsh
+        env:
+          GH_TOKEN: dummy
+          COMMIT_MSG: 'Titel: irrelevant'
+          BRANCH: release/1.0
+          DEFAULT_BRANCH: master
+          ACTOR: test-user
+          REPO: owner/repo
+          MOCK_PROTECTED: 'true'
+          MOCK_EXISTING_PR: ''
+        run: .github/scripts/test-auto-draft-pr/run-impl.ps1 *>&1 | Tee-Object -FilePath output.txt | Out-Null
+
+      - name: Assert
+        run: |
+          set -euo pipefail
+          grep -q "Branch 'release/1.0' is protected, skipping" output.txt
+          if grep -q "MOCK_PR_CREATE" output.txt; then
+            echo "Unexpected: gh pr create was called even though the branch is protected." >&2
+            exit 1
+          fi
+
+  test-existing-pr-skip:
+    name: Existing PR => skip (idempotency)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts/test-auto-draft-pr
+
+      - name: Setup mock gh
+        run: bash .github/scripts/test-auto-draft-pr/ghmock.sh
+
+      - name: Run with mocked gh
+        shell: pwsh
+        env:
+          GH_TOKEN: dummy
+          COMMIT_MSG: 'Titel: irrelevant'
+          BRANCH: feature/foo
+          DEFAULT_BRANCH: master
+          ACTOR: test-user
+          REPO: owner/repo
+          MOCK_PROTECTED: 'false'
+          MOCK_EXISTING_PR: '42'
+        run: .github/scripts/test-auto-draft-pr/run-impl.ps1 *>&1 | Tee-Object -FilePath output.txt | Out-Null
+
+      - name: Assert
+        run: |
+          set -euo pipefail
+          grep -q "PR #42 already exists for 'feature/foo', skipping" output.txt
+          if grep -q "MOCK_PR_CREATE" output.txt; then
+            echo "Unexpected: gh pr create was called even though a PR already exists." >&2
+            exit 1
+          fi
+
+  test-title-from-commit:
+    name: Titel-prefix => extracted title, full pr create
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts/test-auto-draft-pr
+
+      - name: Setup mock gh
+        run: bash .github/scripts/test-auto-draft-pr/ghmock.sh
+
+      - name: Run with mocked gh
+        shell: pwsh
+        env:
+          GH_TOKEN: dummy
+          COMMIT_MSG: |
+            Titel: Add foo support
+            Body line ignored.
+          BRANCH: feature/foo
+          DEFAULT_BRANCH: master
+          ACTOR: test-user
+          REPO: owner/repo
+          MOCK_PROTECTED: 'false'
+          MOCK_EXISTING_PR: ''
+        run: .github/scripts/test-auto-draft-pr/run-impl.ps1 *>&1 | Tee-Object -FilePath output.txt | Out-Null
+
+      - name: Assert
+        run: |
+          set -euo pipefail
+          grep -q "MOCK_PR_CREATE" output.txt
+          grep -q -- "--title Add foo support" output.txt
+          grep -q -- "--head feature/foo" output.txt
+          grep -q -- "--base master" output.txt
+          grep -q -- "--assignee test-user" output.txt
+
+  test-title-fallback:
+    name: No Titel-prefix => Draft:-branch fallback
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts/test-auto-draft-pr
+
+      - name: Setup mock gh
+        run: bash .github/scripts/test-auto-draft-pr/ghmock.sh
+
+      - name: Run with mocked gh
+        shell: pwsh
+        env:
+          GH_TOKEN: dummy
+          COMMIT_MSG: 'Just a regular commit'
+          BRANCH: feature/foo
+          DEFAULT_BRANCH: master
+          ACTOR: test-user
+          REPO: owner/repo
+          MOCK_PROTECTED: 'false'
+          MOCK_EXISTING_PR: ''
+        run: .github/scripts/test-auto-draft-pr/run-impl.ps1 *>&1 | Tee-Object -FilePath output.txt | Out-Null
+
+      - name: Assert
+        run: |
+          set -euo pipefail
+          grep -q "MOCK_PR_CREATE" output.txt
+          grep -q -- "--title Draft: feature/foo" output.txt
