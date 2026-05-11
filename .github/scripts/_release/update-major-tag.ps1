@@ -61,7 +61,7 @@ $checkExit   = $LASTEXITCODE
 $PSNativeCommandUseErrorActionPreference = $true
 
 if ($checkExit -ne 0 -and "$checkOutput" -notmatch 'Not Found') {
-    Write-Error "Unexpected error checking for tag ${major}: $([string]$checkOutput)"
+    Write-Error "Unexpected error checking for tag ${major}: $([string]$checkOutput)" -ErrorAction Continue
     exit 1
 }
 $refExists = ($checkExit -eq 0)
