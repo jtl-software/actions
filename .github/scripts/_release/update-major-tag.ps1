@@ -8,9 +8,13 @@
     annotated tag objects when necessary) and creates or force-updates the
     corresponding rolling major tag (e.g. v1.2.3 -> v1) via the GitHub REST API.
 
-    Required environment variables (set automatically by GitHub Actions):
+    Required environment variables:
       GH_TOKEN            GitHub token with contents:write permission.
+                          Must be set explicitly in the workflow step via
+                          env: GH_TOKEN: ${{ github.token }}; the runner
+                          does not populate this name automatically.
       GITHUB_REPOSITORY   Repository in "owner/repo" format.
+                          Populated automatically by the GitHub Actions runner.
 
 .PARAMETER Tag
     The release tag name (e.g. v1.2.3). Must be strict SemVer (vX.Y.Z).
