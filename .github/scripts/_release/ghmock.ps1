@@ -1,23 +1,26 @@
-#!/usr/bin/env bash
-# Installs a mock `gh` binary at /tmp/gh-mock/gh and registers /tmp/gh-mock
-# with $GITHUB_PATH so all subsequent steps in the same job use it.
-#
-# Behaviour is driven by environment variables set per test job:
-#
-#   MOCK_TAG_TYPE        "lightweight" (default) | "annotated"
-#   MOCK_MAJOR_EXISTS    "false" (default) | "true"
-#   MOCK_MAJOR_TAG_ERROR Non-empty string => the major-tag existence check fails
-#                        with this message on stderr (simulates 5xx / auth errors).
-#                        Takes precedence over MOCK_MAJOR_EXISTS.
-#   MOCK_TAG_SHA         40-char hex (default: aaaa0000...0000)
-#   MOCK_COMMIT_SHA      40-char hex returned after peeling (default: bbbb0000...0000)
-#                        Only relevant when MOCK_TAG_TYPE=annotated.
+<#
+.SYNOPSIS
+    Installs a mock `gh` binary at $HOME/gh-mock and registers it in $GITHUB_PATH.
 
-set -euo pipefail
+.DESCRIPTION
+    Behaviour is driven by environment variables set per test job:
 
-mkdir -p /tmp/gh-mock
+      MOCK_TAG_TYPE        "lightweight" (default) | "annotated"
+      MOCK_MAJOR_EXISTS    "false" (default) | "true"
+      MOCK_MAJOR_TAG_ERROR Non-empty string => the major-tag existence check fails
+                           with this message on stderr (simulates 5xx / auth errors).
+                           Takes precedence over MOCK_MAJOR_EXISTS.
+      MOCK_TAG_SHA         40-char hex (default: aaaa0000...0000)
+      MOCK_COMMIT_SHA      40-char hex returned after peeling (default: bbbb0000...0000)
+                           Only relevant when MOCK_TAG_TYPE=annotated.
+#>
+$ErrorActionPreference = 'Stop'
+$PSNativeCommandUseErrorActionPreference = $true
 
-cat > /tmp/gh-mock/gh << 'MOCK'
+$mockDir = Join-Path $HOME 'gh-mock'
+New-Item -ItemType Directory -Path $mockDir -Force | Out-Null
+
+@'
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -76,9 +79,7 @@ case "$METHOD" in
     printf '{"ref":"refs/tags/v1","object":{"sha":"%s"}}\n' "$MOCK_TAG_SHA" ;;
   *) echo "MOCK: unhandled method $METHOD $ENDPOINT" >&2; exit 1 ;;
 esac
-MOCK
+'@ | Set-Content -Path (Join-Path $mockDir 'gh') -Encoding utf8 -NoNewline
 
-chmod +x /tmp/gh-mock/gh
-# Register with $GITHUB_PATH so all subsequent steps in this job pick up the
-# mock instead of the real gh binary.
-echo "/tmp/gh-mock" >> "$GITHUB_PATH"
+chmod +x (Join-Path $mockDir 'gh')
+"$mockDir" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8

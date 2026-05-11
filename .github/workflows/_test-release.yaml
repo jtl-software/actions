@@ -23,6 +23,7 @@ jobs:
   test-non-semver-skip:
     name: Non-SemVer tag => skip
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -48,6 +49,7 @@ jobs:
   test-lightweight-tag-create:
     name: Lightweight tag + major absent => POST
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -55,7 +57,8 @@ jobs:
           sparse-checkout: .github/scripts/_release
 
       - name: Setup mock gh
-        run: bash .github/scripts/_release/ghmock.sh
+        shell: pwsh
+        run: .github/scripts/_release/ghmock.ps1
 
       - name: Run
         shell: pwsh
@@ -82,6 +85,7 @@ jobs:
   test-annotated-tag-update:
     name: Annotated tag + major present => peel + PATCH
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -89,7 +93,8 @@ jobs:
           sparse-checkout: .github/scripts/_release
 
       - name: Setup mock gh
-        run: bash .github/scripts/_release/ghmock.sh
+        shell: pwsh
+        run: .github/scripts/_release/ghmock.ps1
 
       - name: Run
         shell: pwsh
@@ -118,6 +123,7 @@ jobs:
   test-api-error-propagates:
     name: Unexpected API error => non-zero exit
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -125,7 +131,8 @@ jobs:
           sparse-checkout: .github/scripts/_release
 
       - name: Setup mock gh (error injection)
-        run: bash .github/scripts/_release/ghmock.sh
+        shell: pwsh
+        run: .github/scripts/_release/ghmock.ps1
 
       - name: Run and expect failure
         id: run

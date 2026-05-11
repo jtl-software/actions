@@ -1,22 +1,28 @@
-# MIRROR of the inline `run:` block in
-# `.github/workflows/auto-draft-pr.yaml`. Kept here as a separate file so
-# that `_test-auto-draft-pr.yaml` can drive the implementation against a
-# mocked `gh` CLI.
-#
-# IMPORTANT: When the inline script in the reusable workflow changes,
-# update the block between `MIRROR-START` and `MIRROR-END` below in the
-# same commit. The drift-detection job in `_test-auto-draft-pr.yaml`
-# fails the run if the two diverge byte-for-byte.
-#
-# Inputs (read from process environment, set by the caller):
-#   GH_TOKEN, COMMIT_MSG, BRANCH, DEFAULT_BRANCH, ACTOR, REPO
+<#
+.SYNOPSIS
+    Opens a draft pull request when a feature branch is pushed.
 
-# MIRROR-START: keep in sync with .github/workflows/auto-draft-pr.yaml inline run-block
+.DESCRIPTION
+    Called from the `draft-pr` job in `auto-draft-pr.yaml`. Implements the
+    GitLab "auto-MR" pattern for repositories that migrated from GitLab to
+    GitHub. Skips protected branches and existing PRs before creating.
+
+    Required environment variables (set automatically by GitHub Actions):
+      GH_TOKEN        GitHub token with pull-requests:write and issues:write.
+      COMMIT_MSG      Full commit message of the head commit.
+      BRANCH          Name of the pushed branch.
+      DEFAULT_BRANCH  Default branch of the repository (e.g. main).
+      ACTOR           GitHub username of the person who triggered the push.
+      REPO            Repository in "owner/repo" format.
+#>
+[CmdletBinding()]
+param()
+
 # Fail-fast: cmdlet errors stop the script, and non-zero exit codes
 # from native commands (gh, jq) propagate as terminating errors.
 # Equivalent to bash `set -euo pipefail`. Requires PowerShell 7.4+
-# (PS 7.3 had this as an experimental feature that needed an explicit
-# opt-in), which ships with GitHub-hosted ubuntu-latest runners.
+# ($PSNativeCommandUseErrorActionPreference was experimental in 7.3),
+# which ships on GitHub-hosted ubuntu-latest runners.
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $true
 
@@ -77,4 +83,3 @@ gh pr create `
     --title    $title `
     --body     $body `
     --assignee $env:ACTOR
-# MIRROR-END
