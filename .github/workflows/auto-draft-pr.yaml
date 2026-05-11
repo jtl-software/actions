@@ -40,6 +40,11 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          # This reusable workflow runs in the caller's repository context, so
+          # repository and ref must be explicit to fetch the script from
+          # jtl-software/actions at the same commit as the called workflow.
+          repository: jtl-software/actions
+          ref: ${{ job.workflow_sha }}
           persist-credentials: false
           sparse-checkout: .github/scripts/auto-draft-pr
 
