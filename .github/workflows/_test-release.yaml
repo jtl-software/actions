@@ -147,9 +147,6 @@ jobs:
         run: |
           .github/scripts/_release/update-major-tag.ps1 -Tag 'v1.0.0' *>&1 |
             Tee-Object -FilePath output.txt | Out-Null
-          # Re-propagate the script's exit code; Out-Null at the end of the
-          # pipeline would otherwise always exit 0, masking a script failure.
-          exit $LASTEXITCODE
 
       - name: Assert script failed and reported the error
         run: |
