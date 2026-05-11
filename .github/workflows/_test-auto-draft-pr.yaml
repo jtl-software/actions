@@ -132,7 +132,7 @@ jobs:
           grep -q -- "--assignee test-user" output.txt
 
   test-title-fallback:
-    name: No Titel-prefix => Draft: <branch> fallback
+    name: "No Titel-prefix => Draft: <branch> fallback"
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
