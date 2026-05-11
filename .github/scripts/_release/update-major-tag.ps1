@@ -14,7 +14,9 @@
 
 .PARAMETER Tag
     The release tag name (e.g. v1.2.3). Must be strict SemVer (vX.Y.Z).
-    Tags containing a hyphen (pre-releases) are silently skipped.
+    Tags that do not match are skipped with a log message. The workflow-level
+    `if: !contains(github.ref_name, '-')` guard handles pre-release filtering
+    upstream; this check is a safety net for direct calls.
 #>
 [CmdletBinding()]
 param(
