@@ -44,7 +44,7 @@ jobs:
           # repository and ref must be explicit to fetch the script from
           # jtl-software/actions at the same commit as the called workflow.
           repository: jtl-software/actions
-          ref: ${{ job.workflow_sha }}
+          ref: ${{ github.workflow_sha }}
           persist-credentials: false
           sparse-checkout: .github/scripts/auto-draft-pr
 
