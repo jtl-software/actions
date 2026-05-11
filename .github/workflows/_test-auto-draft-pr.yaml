@@ -6,7 +6,7 @@
 #   1. Protected branch -> skip
 #   2. Existing open PR -> skip (idempotency)
 #   3. Titel-prefix in commit message -> extracted title, PR created
-#   4. No Titel-prefix -> Draft:<branch> fallback title, PR created
+#   4. No Titel-prefix -> Draft: <branch> fallback title, PR created
 
 name: Test auto-draft-pr
 
@@ -132,7 +132,7 @@ jobs:
           grep -q -- "--assignee test-user" output.txt
 
   test-title-fallback:
-    name: No Titel-prefix => Draft:-branch fallback
+    name: No Titel-prefix => Draft: <branch> fallback
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
