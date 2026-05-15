@@ -69,7 +69,7 @@ uses: jtl-software/actions/.github/workflows/auto-draft-pr.yaml@<sha> # v1.0.0
 ## Releasing
 
 Releases are tag-driven. Pushing a tag matching `v*` triggers
-`.github/workflows/release.yaml`, which creates the GitHub Release with
+`.github/workflows/_release.yaml`, which creates the GitHub Release with
 auto-generated notes (PRs since the previous release, grouped by label
 according to `.github/release.yml`) and force-updates the rolling major
 tag (`v1`, `v2`, ...) for strict SemVer releases.

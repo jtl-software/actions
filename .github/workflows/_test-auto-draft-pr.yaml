@@ -1,10 +1,12 @@
 # INTERNAL WORKFLOW - Not for external use.
 # Workflows prefixed with `_` are internal to this repository.
 #
-# This workflow exercises `auto-draft-pr.yaml` against a mocked `gh` CLI.
-# A separate "drift detection" job verifies that the mirror script in
-# `.github/scripts/test-auto-draft-pr/run-impl.ps1` is byte-identical to
-# the inline `run:` block in the reusable workflow.
+# This workflow exercises `open-draft-pr.ps1` against a mocked `gh` CLI.
+# Four code paths:
+#   1. Protected branch -> skip
+#   2. Existing open PR -> skip (idempotency)
+#   3. Titel-prefix in commit message -> extracted title, PR created
+#   4. No Titel-prefix -> Draft: <branch> fallback title, PR created
 
 name: Test auto-draft-pr
 
@@ -19,46 +21,19 @@ permissions:
   contents: read
 
 jobs:
-  drift-detection:
-    name: Mirror sync (drift detection)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-          sparse-checkout: |
-            .github/workflows/auto-draft-pr.yaml
-            .github/scripts/test-auto-draft-pr/run-impl.ps1
-
-      - name: Compare YAML inline block to mirror script
-        run: |
-          # Extract the inline run-block from the reusable workflow. yq emits
-          # a trailing newline for `|`-style block scalars; capturing into a
-          # bash command-substitution strips trailing newlines automatically,
-          # so the two sides normalize identically.
-          yaml_content=$(yq '.jobs.draft-pr.steps[0].run' .github/workflows/auto-draft-pr.yaml)
-
-          # Extract the mirrored block from the test helper, between the
-          # MIRROR-START and MIRROR-END marker lines (markers themselves
-          # excluded).
-          mirror_content=$(sed -n '/^# MIRROR-START:/,/^# MIRROR-END$/{//!p}' \
-            .github/scripts/test-auto-draft-pr/run-impl.ps1)
-
-          # Both must match byte-for-byte. Any divergence means the inline
-          # workflow script and the test mirror have drifted.
-          diff -u <(printf '%s' "$yaml_content") <(printf '%s' "$mirror_content")
-
   test-protected-branch-skip:
     name: Protected branch => skip
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-          sparse-checkout: .github/scripts/test-auto-draft-pr
+          sparse-checkout: .github/scripts/auto-draft-pr
 
       - name: Setup mock gh
-        run: bash .github/scripts/test-auto-draft-pr/ghmock.sh
+        shell: pwsh
+        run: .github/scripts/auto-draft-pr/ghmock.ps1
 
       - name: Run with mocked gh
         shell: pwsh
@@ -71,7 +46,7 @@ jobs:
           REPO: owner/repo
           MOCK_PROTECTED: 'true'
           MOCK_EXISTING_PR: ''
-        run: .github/scripts/test-auto-draft-pr/run-impl.ps1 *>&1 | Tee-Object -FilePath output.txt | Out-Null
+        run: .github/scripts/auto-draft-pr/open-draft-pr.ps1 *>&1 | Tee-Object -FilePath output.txt | Out-Null
 
       - name: Assert
         run: |
@@ -85,14 +60,16 @@ jobs:
   test-existing-pr-skip:
     name: Existing PR => skip (idempotency)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-          sparse-checkout: .github/scripts/test-auto-draft-pr
+          sparse-checkout: .github/scripts/auto-draft-pr
 
       - name: Setup mock gh
-        run: bash .github/scripts/test-auto-draft-pr/ghmock.sh
+        shell: pwsh
+        run: .github/scripts/auto-draft-pr/ghmock.ps1
 
       - name: Run with mocked gh
         shell: pwsh
@@ -105,7 +82,7 @@ jobs:
           REPO: owner/repo
           MOCK_PROTECTED: 'false'
           MOCK_EXISTING_PR: '42'
-        run: .github/scripts/test-auto-draft-pr/run-impl.ps1 *>&1 | Tee-Object -FilePath output.txt | Out-Null
+        run: .github/scripts/auto-draft-pr/open-draft-pr.ps1 *>&1 | Tee-Object -FilePath output.txt | Out-Null
 
       - name: Assert
         run: |
@@ -119,14 +96,16 @@ jobs:
   test-title-from-commit:
     name: Titel-prefix => extracted title, full pr create
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-          sparse-checkout: .github/scripts/test-auto-draft-pr
+          sparse-checkout: .github/scripts/auto-draft-pr
 
       - name: Setup mock gh
-        run: bash .github/scripts/test-auto-draft-pr/ghmock.sh
+        shell: pwsh
+        run: .github/scripts/auto-draft-pr/ghmock.ps1
 
       - name: Run with mocked gh
         shell: pwsh
@@ -141,7 +120,7 @@ jobs:
           REPO: owner/repo
           MOCK_PROTECTED: 'false'
           MOCK_EXISTING_PR: ''
-        run: .github/scripts/test-auto-draft-pr/run-impl.ps1 *>&1 | Tee-Object -FilePath output.txt | Out-Null
+        run: .github/scripts/auto-draft-pr/open-draft-pr.ps1 *>&1 | Tee-Object -FilePath output.txt | Out-Null
 
       - name: Assert
         run: |
@@ -153,16 +132,18 @@ jobs:
           grep -q -- "--assignee test-user" output.txt
 
   test-title-fallback:
-    name: No Titel-prefix => Draft:-branch fallback
+    name: "No Titel-prefix => Draft: <branch> fallback"
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-          sparse-checkout: .github/scripts/test-auto-draft-pr
+          sparse-checkout: .github/scripts/auto-draft-pr
 
       - name: Setup mock gh
-        run: bash .github/scripts/test-auto-draft-pr/ghmock.sh
+        shell: pwsh
+        run: .github/scripts/auto-draft-pr/ghmock.ps1
 
       - name: Run with mocked gh
         shell: pwsh
@@ -175,7 +156,7 @@ jobs:
           REPO: owner/repo
           MOCK_PROTECTED: 'false'
           MOCK_EXISTING_PR: ''
-        run: .github/scripts/test-auto-draft-pr/run-impl.ps1 *>&1 | Tee-Object -FilePath output.txt | Out-Null
+        run: .github/scripts/auto-draft-pr/open-draft-pr.ps1 *>&1 | Tee-Object -FilePath output.txt | Out-Null
 
       - name: Assert
         run: |

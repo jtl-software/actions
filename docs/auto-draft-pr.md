@@ -59,4 +59,4 @@ Declared at job level inside the reusable workflow; the caller does not need to 
 - `Titel:` prefix in commit subject → title is the trimmed remainder
 - No prefix → title is `Draft: <branch>`
 
-A drift-detection job ensures the inline `run:` block in `auto-draft-pr.yaml` stays byte-identical to the mirror script `.github/scripts/test-auto-draft-pr/run-impl.ps1` that the tests drive.
+The mock `gh` binary is set up by `.github/scripts/auto-draft-pr/ghmock.ps1`. The tests call `.github/scripts/auto-draft-pr/open-draft-pr.ps1` directly, which is the same script the reusable workflow calls in production — there is no mirror file or drift-detection job.

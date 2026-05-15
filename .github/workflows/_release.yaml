@@ -35,6 +35,7 @@ jobs:
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write
     steps:
@@ -51,34 +52,29 @@ jobs:
   update-major-tag:
     name: Roll major-version tag
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: create-release
     # Only roll the major tag for strict SemVer releases (vX.Y.Z), never for
     # pre-releases (vX.Y.Z-rc.N) where the major tag should keep pointing at
     # the previous stable release.
     if: ${{ !contains(github.ref_name, '-') }}
+    # contents: write is required for GITHUB_TOKEN to create and update git refs
+    # via the REST API (gh api --method PATCH/POST repos/.../git/refs).
     permissions:
       contents: write
     steps:
+      # Checkout is sparse: only the script directory is fetched. No git history
+      # or credentials are needed because the tag update uses the REST API.
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          fetch-depth: 0
-          persist-credentials: true
+          persist-credentials: false
+          sparse-checkout: .github/scripts/_release
 
       - name: Force-update major tag
         env:
-          TAG: ${{ github.ref_name }}
-        run: |
-          set -euo pipefail
-          # Extract the leading "vN" (e.g. v1.2.3 -> v1, v2.0.0 -> v2).
-          if [[ ! "$TAG" =~ ^v([0-9]+)\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Tag '$TAG' is not strict SemVer (vX.Y.Z); skipping major-tag roll."
-            exit 0
-          fi
-          MAJOR="v${BASH_REMATCH[1]}"
-          echo "Rolling tag $MAJOR to the commit of $TAG."
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git tag --force "$MAJOR" "$TAG"
-          git push origin "$MAJOR" --force
+          GH_TOKEN: ${{ github.token }}
+          # Passed via env, not interpolated into the run string, to avoid
+          # shell injection (ref_name is attacker-controlled via git push).
+          RELEASE_TAG: ${{ github.ref_name }}
+        shell: pwsh
+        run: .github/scripts/_release/update-major-tag.ps1 -Tag "$env:RELEASE_TAG"

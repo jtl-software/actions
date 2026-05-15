@@ -45,7 +45,7 @@ Helper scripts in this repository may be **bash** or **PowerShell**. Choose per 
 
 ## How the auto-draft-pr reusable workflow works
 
-`.github/workflows/auto-draft-pr.yaml` - reusable workflow (`on: workflow_call`). Opens a draft PR when a feature branch is pushed (GitLab auto-MR parity). The caller controls the `on: push` filters; the reusable workflow declares its own permissions, `if:` guard against the default branch, and the full PowerShell logic inline.
+`.github/workflows/auto-draft-pr.yaml` - reusable workflow (`on: workflow_call`). Opens a draft PR when a feature branch is pushed (GitLab auto-MR parity). The caller controls the `on: push` filters; the reusable workflow declares its own permissions and `if:` guard against the default branch. The implementation lives in `.github/scripts/auto-draft-pr/open-draft-pr.ps1`.
 
 Key behaviour:
 
@@ -75,7 +75,7 @@ Public artefacts are referenced by `@main` (latest), `@v1` / `@v2` (rolling majo
 
 ## Releases
 
-Tag-driven via `.github/workflows/release.yaml`. Pushing a `v*` tag triggers `softprops/action-gh-release` with `generate_release_notes: true` (PRs since the previous release, grouped by label according to `.github/release.yml`) and force-updates the rolling major tag (`v1`, `v2`, ...) for strict SemVer tags. Pre-release tags (`vX.Y.Z-rc.N`, `vX.Y.Z-beta.N`) are detected by the hyphen, marked as pre-release, and do not roll the major tag.
+Tag-driven via `.github/workflows/_release.yaml`. Pushing a `v*` tag triggers `softprops/action-gh-release` with `generate_release_notes: true` (PRs since the previous release, grouped by label according to `.github/release.yml`) and force-updates the rolling major tag (`v1`, `v2`, ...) for strict SemVer tags. Pre-release tags (`vX.Y.Z-rc.N`, `vX.Y.Z-beta.N`) are detected by the hyphen, marked as pre-release, and do not roll the major tag.
 
 Tag bump and Push are manual:
 
