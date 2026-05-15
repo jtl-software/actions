@@ -7,7 +7,10 @@
     GitLab "auto-MR" pattern for repositories that migrated from GitLab to
     GitHub. Skips protected branches and existing PRs before creating.
 
-    Required environment variables (set automatically by GitHub Actions):
+    Required environment variables. All of these must be wired explicitly in
+    the calling workflow step's `env:` block; the GitHub Actions runner does
+    not populate any of them automatically under these names. See the
+    `draft-pr` job in `auto-draft-pr.yaml` for the canonical mapping.
       GH_TOKEN        GitHub token with pull-requests:write and issues:write.
       COMMIT_MSG      Full commit message of the head commit.
       BRANCH          Name of the pushed branch.
@@ -19,10 +22,11 @@
 param()
 
 # Fail-fast: cmdlet errors stop the script, and non-zero exit codes
-# from native commands (gh, jq) propagate as terminating errors.
-# Equivalent to bash `set -euo pipefail`. Requires PowerShell 7.4+
-# ($PSNativeCommandUseErrorActionPreference was experimental in 7.3),
-# which ships on GitHub-hosted ubuntu-latest runners.
+# from the `gh` native command propagate as terminating errors. JSON
+# filtering happens via `gh ... --jq` (built into gh); no separate `jq`
+# binary is invoked. Equivalent to bash `set -euo pipefail`.
+# Requires PowerShell 7.4+ ($PSNativeCommandUseErrorActionPreference was
+# experimental in 7.3), which ships on GitHub-hosted ubuntu-latest runners.
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $true
 
