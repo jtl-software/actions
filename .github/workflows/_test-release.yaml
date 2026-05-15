@@ -4,7 +4,8 @@
 # Tests update-major-tag.ps1 against a mocked `gh` CLI. Four code paths:
 #   1. Non-SemVer tag -> skip (no API calls needed)
 #   2. Lightweight release tag, major tag absent -> POST (create)
-#   3. Annotated release tag, major tag present -> PATCH (update) + SHA peel
+#   3. Annotated release tag, major tag present -> resolve underlying commit
+#      SHA (the tag ref points to a tag object, not the commit) -> PATCH
 #   4. API error other than 404 -> script exits non-zero
 
 name: Test _release
@@ -83,7 +84,7 @@ jobs:
           fi
 
   test-annotated-tag-update:
-    name: Annotated tag + major present => peel + PATCH
+    name: Annotated tag + major present => resolve commit + update
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
