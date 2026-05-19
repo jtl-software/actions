@@ -13,9 +13,23 @@ name: Test auto-draft-pr
 on:
   push:
     branches: [main]
+    paths:
+      - '.github/scripts/auto-draft-pr/**'
+      - '.github/workflows/auto-draft-pr.yaml'
+      - '.github/workflows/_test-auto-draft-pr.yaml'
   pull_request:
     branches: [main]
+    paths:
+      - '.github/scripts/auto-draft-pr/**'
+      - '.github/workflows/auto-draft-pr.yaml'
+      - '.github/workflows/_test-auto-draft-pr.yaml'
   workflow_dispatch:
+
+# Cancel an in-flight run for the same PR when a new push lands, but never
+# cancel pushes to main (so every commit on main gets its own green check).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
