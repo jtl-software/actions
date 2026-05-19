@@ -4,7 +4,7 @@ Opens a draft pull request when a feature branch is pushed. Reproduces the GitLa
 
 ## Usage
 
-The caller controls only the `on:` trigger. The reusable workflow declares its own permissions, default-branch guard, runner, and PowerShell implementation; the caller does not pass inputs or secrets.
+The caller controls only the `on:` trigger. The reusable workflow declares its own permissions, default-branch guard, runner, and Bash implementation; the caller does not pass inputs or secrets.
 
 ```yaml
 # .github/workflows/auto-draft-pr.yaml in the consumer repo
@@ -48,7 +48,7 @@ Declared at job level inside the reusable workflow; the caller does not need to 
 
 ## Runner
 
-`ubuntu-latest`. The PowerShell `pwsh` shell ships preinstalled. Requires PowerShell 7.4+ for native-command exit-code propagation via `$PSNativeCommandUseErrorActionPreference`.
+`ubuntu-latest` with Bash.
 
 ## Testing
 
@@ -59,4 +59,4 @@ Declared at job level inside the reusable workflow; the caller does not need to 
 - `Titel:` prefix in commit subject → title is the trimmed remainder
 - No prefix → title is `Draft: <branch>`
 
-The mock `gh` binary is set up by `.github/scripts/auto-draft-pr/ghmock.ps1`. The tests call `.github/scripts/auto-draft-pr/open-draft-pr.ps1` directly, which is the same script the reusable workflow calls in production — there is no mirror file or drift-detection job.
+The mock `gh` binary is set up by `.github/scripts/auto-draft-pr/ghmock.sh`. The tests call `.github/scripts/auto-draft-pr/open-draft-pr.sh` directly, which is the same script the reusable workflow calls in production — there is no mirror file or drift-detection job.

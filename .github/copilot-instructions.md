@@ -20,7 +20,7 @@ Consumers reference public artefacts via:
 .github/
   actions/<name>/       # Composite actions - public API
     action.yaml
-    *.sh / *.ps1        # Helper scripts called by the action
+    *.sh        # Helper scripts called by the action
   workflows/
     <name>.yaml         # Public reusable workflows
     _lint.yaml          # Internal: actionlint
@@ -33,19 +33,14 @@ workflow-templates/
 
 ## Languages and idioms
 
-Helper scripts in this repository may be **bash** or **PowerShell**. Choose per artefact based on what the workflow already needs and what runs cleanest on the target runners.
+Helper scripts in this repository should be **bash**.
 
 - Bash: enforce `set -euo pipefail`, must pass shellcheck via `_lint.yaml`.
-- PowerShell: target `pwsh` (PowerShell 7+, preinstalled on GitHub-hosted runners). Always set:
-  ```powershell
-  $ErrorActionPreference = 'Stop'
-  $PSNativeCommandUseErrorActionPreference = $true
-  ```
-  Use built-in cmdlets and operators (`[uri]::EscapeDataString`, `-match`, `$Matches`, `Write-Host`) over external tools where possible. No `Read-Host`, no interactive prompts.
+
 
 ## How the auto-draft-pr reusable workflow works
 
-`.github/workflows/auto-draft-pr.yaml` - reusable workflow (`on: workflow_call`). Opens a draft PR when a feature branch is pushed (GitLab auto-MR parity). The caller controls the `on: push` filters; the reusable workflow declares its own permissions and `if:` guard against the default branch. The implementation lives in `.github/scripts/auto-draft-pr/open-draft-pr.ps1`.
+`.github/workflows/auto-draft-pr.yaml` - reusable workflow (`on: workflow_call`). Opens a draft PR when a feature branch is pushed (GitLab auto-MR parity). The caller controls the `on: push` filters; the reusable workflow declares its own permissions and `if:` guard against the default branch. The implementation lives in `.github/scripts/auto-draft-pr/open-draft-pr.sh`.
 
 Key behaviour:
 
@@ -64,7 +59,7 @@ Key behaviour:
 ## Adding a new composite action
 
 1. Create `.github/actions/<name>/action.yaml`.
-2. Add helper scripts in the same directory (shellcheck for `.sh`, syntax-clean pwsh for `.ps1`).
+2. Add helper scripts in the same directory (shellcheck for `.sh`).
 3. Add an integration test workflow `.github/workflows/_test-<name>.yaml`.
 4. Add documentation to `docs/<name>.md`.
 5. Mention the new action in `README.md`.

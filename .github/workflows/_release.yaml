@@ -76,5 +76,5 @@ jobs:
           # Passed via env, not interpolated into the run string, to avoid
           # shell injection (ref_name is attacker-controlled via git push).
           RELEASE_TAG: ${{ github.ref_name }}
-        shell: pwsh
-        run: .github/scripts/_release/update-major-tag.ps1 -Tag "$env:RELEASE_TAG"
+        shell: bash
+        run: .github/scripts/_release/update-major-tag.sh "$RELEASE_TAG"

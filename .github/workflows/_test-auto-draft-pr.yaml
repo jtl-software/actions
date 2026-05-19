@@ -1,7 +1,7 @@
 # INTERNAL WORKFLOW - Not for external use.
 # Workflows prefixed with `_` are internal to this repository.
 #
-# This workflow exercises `open-draft-pr.ps1` against a mocked `gh` CLI.
+# This workflow exercises `open-draft-pr.sh` against a mocked `gh` CLI.
 # Four code paths:
 #   1. Protected branch -> skip
 #   2. Existing open PR -> skip (idempotency)
@@ -32,11 +32,11 @@ jobs:
           sparse-checkout: .github/scripts/auto-draft-pr
 
       - name: Setup mock gh
-        shell: pwsh
-        run: .github/scripts/auto-draft-pr/ghmock.ps1
+        shell: bash
+        run: .github/scripts/auto-draft-pr/ghmock.sh
 
       - name: Run with mocked gh
-        shell: pwsh
+        shell: bash
         env:
           GH_TOKEN: dummy
           COMMIT_MSG: 'Titel: irrelevant'
@@ -46,7 +46,7 @@ jobs:
           REPO: owner/repo
           MOCK_PROTECTED: 'true'
           MOCK_EXISTING_PR: ''
-        run: .github/scripts/auto-draft-pr/open-draft-pr.ps1 *>&1 | Tee-Object -FilePath output.txt | Out-Null
+        run: .github/scripts/auto-draft-pr/open-draft-pr.sh 2>&1 | tee output.txt > /dev/null
 
       - name: Assert
         run: |
@@ -68,11 +68,11 @@ jobs:
           sparse-checkout: .github/scripts/auto-draft-pr
 
       - name: Setup mock gh
-        shell: pwsh
-        run: .github/scripts/auto-draft-pr/ghmock.ps1
+        shell: bash
+        run: .github/scripts/auto-draft-pr/ghmock.sh
 
       - name: Run with mocked gh
-        shell: pwsh
+        shell: bash
         env:
           GH_TOKEN: dummy
           COMMIT_MSG: 'Titel: irrelevant'
@@ -82,7 +82,7 @@ jobs:
           REPO: owner/repo
           MOCK_PROTECTED: 'false'
           MOCK_EXISTING_PR: '42'
-        run: .github/scripts/auto-draft-pr/open-draft-pr.ps1 *>&1 | Tee-Object -FilePath output.txt | Out-Null
+        run: .github/scripts/auto-draft-pr/open-draft-pr.sh 2>&1 | tee output.txt > /dev/null
 
       - name: Assert
         run: |
@@ -104,11 +104,11 @@ jobs:
           sparse-checkout: .github/scripts/auto-draft-pr
 
       - name: Setup mock gh
-        shell: pwsh
-        run: .github/scripts/auto-draft-pr/ghmock.ps1
+        shell: bash
+        run: .github/scripts/auto-draft-pr/ghmock.sh
 
       - name: Run with mocked gh
-        shell: pwsh
+        shell: bash
         env:
           GH_TOKEN: dummy
           COMMIT_MSG: |
@@ -120,7 +120,7 @@ jobs:
           REPO: owner/repo
           MOCK_PROTECTED: 'false'
           MOCK_EXISTING_PR: ''
-        run: .github/scripts/auto-draft-pr/open-draft-pr.ps1 *>&1 | Tee-Object -FilePath output.txt | Out-Null
+        run: .github/scripts/auto-draft-pr/open-draft-pr.sh 2>&1 | tee output.txt > /dev/null
 
       - name: Assert
         run: |
@@ -142,11 +142,11 @@ jobs:
           sparse-checkout: .github/scripts/auto-draft-pr
 
       - name: Setup mock gh
-        shell: pwsh
-        run: .github/scripts/auto-draft-pr/ghmock.ps1
+        shell: bash
+        run: .github/scripts/auto-draft-pr/ghmock.sh
 
       - name: Run with mocked gh
-        shell: pwsh
+        shell: bash
         env:
           GH_TOKEN: dummy
           COMMIT_MSG: 'Just a regular commit'
@@ -156,7 +156,7 @@ jobs:
           REPO: owner/repo
           MOCK_PROTECTED: 'false'
           MOCK_EXISTING_PR: ''
-        run: .github/scripts/auto-draft-pr/open-draft-pr.ps1 *>&1 | Tee-Object -FilePath output.txt | Out-Null
+        run: .github/scripts/auto-draft-pr/open-draft-pr.sh 2>&1 | tee output.txt > /dev/null
 
       - name: Assert
         run: |

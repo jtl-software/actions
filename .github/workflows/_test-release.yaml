@@ -1,7 +1,7 @@
 # INTERNAL WORKFLOW - Not for external use.
 # Workflows prefixed with `_` are internal to this repository.
 #
-# Tests update-major-tag.ps1 against a mocked `gh` CLI. Four code paths:
+# Tests update-major-tag.sh against a mocked `gh` CLI. Four code paths:
 #   1. Non-SemVer tag -> skip (no API calls needed)
 #   2. Lightweight release tag, major tag absent -> POST (create)
 #   3. Annotated release tag, major tag present -> resolve underlying commit
@@ -36,13 +36,13 @@ jobs:
         # path. If a regression causes a gh call to happen, the step fails with
         # an auth error from the real binary (GH_TOKEN: dummy), which is a clear
         # signal that the validation guard was bypassed.
-        shell: pwsh
+        shell: bash
         env:
           GH_TOKEN: dummy
           GITHUB_REPOSITORY: owner/repo
         run: |
-          .github/scripts/_release/update-major-tag.ps1 -Tag 'not-a-semver' *>&1 |
-            Tee-Object -FilePath output.txt | Out-Null
+          .github/scripts/_release/update-major-tag.sh 'not-a-semver' 2>&1 |
+            tee output.txt > /dev/null
 
       - name: Assert
         run: grep -q "does not match strict SemVer" output.txt
@@ -58,19 +58,19 @@ jobs:
           sparse-checkout: .github/scripts/_release
 
       - name: Setup mock gh
-        shell: pwsh
-        run: .github/scripts/_release/ghmock.ps1
+        shell: bash
+        run: .github/scripts/_release/ghmock.sh
 
       - name: Run
-        shell: pwsh
+        shell: bash
         env:
           GH_TOKEN: dummy
           GITHUB_REPOSITORY: owner/repo
           MOCK_TAG_TYPE: lightweight
           MOCK_MAJOR_EXISTS: 'false'
         run: |
-          .github/scripts/_release/update-major-tag.ps1 -Tag 'v1.0.0' *>&1 |
-            Tee-Object -FilePath output.txt | Out-Null
+          .github/scripts/_release/update-major-tag.sh 'v1.0.0' 2>&1 |
+            tee output.txt > /dev/null
 
       - name: Assert
         run: |
@@ -94,11 +94,11 @@ jobs:
           sparse-checkout: .github/scripts/_release
 
       - name: Setup mock gh
-        shell: pwsh
-        run: .github/scripts/_release/ghmock.ps1
+        shell: bash
+        run: .github/scripts/_release/ghmock.sh
 
       - name: Run
-        shell: pwsh
+        shell: bash
         env:
           GH_TOKEN: dummy
           GITHUB_REPOSITORY: owner/repo
@@ -107,8 +107,8 @@ jobs:
           MOCK_TAG_SHA: aaaa000000000000000000000000000000000000
           MOCK_COMMIT_SHA: bbbb000000000000000000000000000000000000
         run: |
-          .github/scripts/_release/update-major-tag.ps1 -Tag 'v1.1.0' *>&1 |
-            Tee-Object -FilePath output.txt | Out-Null
+          .github/scripts/_release/update-major-tag.sh 'v1.1.0' 2>&1 |
+            tee output.txt > /dev/null
 
       - name: Assert
         run: |
@@ -132,12 +132,12 @@ jobs:
           sparse-checkout: .github/scripts/_release
 
       - name: Setup mock gh (error injection)
-        shell: pwsh
-        run: .github/scripts/_release/ghmock.ps1
+        shell: bash
+        run: .github/scripts/_release/ghmock.sh
 
       - name: Run and expect failure
         id: run
-        shell: pwsh
+        shell: bash
         continue-on-error: true
         env:
           GH_TOKEN: dummy
@@ -146,8 +146,8 @@ jobs:
           # with a non-404 message, simulating a 5xx or auth error.
           MOCK_MAJOR_TAG_ERROR: '{"message":"Internal Server Error"}'
         run: |
-          .github/scripts/_release/update-major-tag.ps1 -Tag 'v1.0.0' *>&1 |
-            Tee-Object -FilePath output.txt | Out-Null
+          .github/scripts/_release/update-major-tag.sh 'v1.0.0' 2>&1 |
+            tee output.txt > /dev/null
 
       - name: Assert script failed and reported the error
         run: |

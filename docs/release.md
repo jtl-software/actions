@@ -58,6 +58,6 @@ PRs are grouped in the auto-generated release notes by their labels. See `.githu
 
 ## Implementation notes
 
-The `update-major-tag` job delegates to `.github/scripts/_release/update-major-tag.ps1`. The script uses the GitHub REST API (`gh api`) rather than `git push --force`, which avoids the need for a full repository checkout with credentials and eliminates the git identity configuration boilerplate.
+The `update-major-tag` job delegates to `.github/scripts/_release/update-major-tag.sh`. The script uses the GitHub REST API (`gh api`) rather than `git push --force`, which avoids the need for a full repository checkout with credentials and eliminates the git identity configuration boilerplate.
 
 Tags created by `gh release create` are annotated tag objects; the script peels the object to find the underlying commit SHA before writing the major tag.
