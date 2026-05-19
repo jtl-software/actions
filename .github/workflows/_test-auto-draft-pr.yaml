@@ -2,11 +2,12 @@
 # Workflows prefixed with `_` are internal to this repository.
 #
 # This workflow exercises `open-draft-pr.sh` against a mocked `gh` CLI.
-# Four code paths:
+# Five code paths:
 #   1. Protected branch -> skip
 #   2. Existing open PR -> skip (idempotency)
-#   3. Titel-prefix in commit message -> extracted title, PR created
-#   4. No Titel-prefix -> Draft: <branch> fallback title, PR created
+#   3. Titel-prefix (German) in commit message -> extracted title, PR created
+#   4. Title-prefix (English) in commit message -> extracted title, PR created
+#   5. No title/Titel prefix -> Draft: <branch> fallback title, PR created
 
 name: Test auto-draft-pr
 
@@ -142,6 +143,44 @@ jobs:
           grep -q "MOCK_PR_CREATE" output.txt
           grep -q -- "--title Add foo support" output.txt
           grep -q -- "--head feature/foo" output.txt
+          grep -q -- "--base master" output.txt
+          grep -q -- "--assignee test-user" output.txt
+
+  test-title-english-from-commit:
+    name: title-prefix (English) => extracted title
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts/auto-draft-pr
+
+      - name: Setup mock gh
+        shell: bash
+        run: .github/scripts/auto-draft-pr/ghmock.sh
+
+      - name: Run with mocked gh
+        shell: bash
+        env:
+          GH_TOKEN: dummy
+          COMMIT_MSG: |
+            Title: Add bar support
+            Body line ignored.
+          BRANCH: feature/bar
+          DEFAULT_BRANCH: master
+          ACTOR: test-user
+          REPO: owner/repo
+          MOCK_PROTECTED: 'false'
+          MOCK_EXISTING_PR: ''
+        run: .github/scripts/auto-draft-pr/open-draft-pr.sh 2>&1 | tee output.txt > /dev/null
+
+      - name: Assert
+        run: |
+          set -euo pipefail
+          grep -q "MOCK_PR_CREATE" output.txt
+          grep -q -- "--title Add bar support" output.txt
+          grep -q -- "--head feature/bar" output.txt
           grep -q -- "--base master" output.txt
           grep -q -- "--assignee test-user" output.txt
 
