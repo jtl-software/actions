@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# Open a draft PR for the pushed branch (GitLab auto-MR parity).
-# Idempotent: re-runs on the same branch are a no-op if an open PR already exists.
+# Open a draft pull request for the branch that was just pushed.
+# Safe to run more than once. If an open pull request already exists
+# for the branch, the script does nothing.
 set -euo pipefail
 
-# Required inputs are passed via env from the calling workflow.
-# The `:` builtin with `${VAR:?msg}` aborts with a clear error if any are unset or empty.
+# All inputs come from environment variables set by the workflow that
+# runs this script. If any of them is missing or empty, the next lines
+# stop the script with a clear error message.
 : "${GH_TOKEN:?GH_TOKEN is required}"
 : "${COMMIT_MSG:?COMMIT_MSG is required}"
 : "${BRANCH:?BRANCH is required}"
@@ -12,13 +14,16 @@ set -euo pipefail
 : "${ACTOR:?ACTOR is required}"
 : "${REPO:?REPO is required}"
 
-# Branch names may contain slashes and other characters that need percent-encoding
-# before being used as a path segment in the GitHub REST API.
+# Branch names can contain slashes and other characters that are not
+# safe inside a URL. The url_encode helper rewrites them so the branch
+# name can be used as part of an API path.
 url_encode() {
   python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$1"
 }
 
-# Skip protected branches (GitLab parity for the CI_COMMIT_REF_PROTECTED rule).
+# Stop early if the branch is protected. Protected branches usually
+# get their pull requests in a different way, so we do not want to
+# open an automatic draft for them.
 encoded_branch="$(url_encode "$BRANCH")"
 is_protected="$(gh api "repos/${REPO}/branches/${encoded_branch}" --jq '.protected')"
 
@@ -27,12 +32,15 @@ if [[ "$is_protected" == "true" ]]; then
   exit 0
 fi
 
-# Extract the first line of the commit message and strip a trailing CR (Windows line endings).
+# Take the first line of the commit message as the subject and remove
+# a trailing carriage return that can appear on Windows line endings.
 subject="${COMMIT_MSG%%$'\n'*}"
 subject="${subject%$'\r'}"
 
-# If the subject starts with `title:` or `titel:` (case-insensitive), use the remainder
-# as the PR title; otherwise fall back to a generic "Draft: <branch>" title.
+# If the subject starts with "title:" or "titel:" in any combination
+# of upper and lower case, use the text after the colon as the title
+# of the pull request. Otherwise use "Draft: <branch>" as a simple
+# default title.
 shopt -s nocasematch
 if [[ "$subject" =~ ^(title|titel):[[:space:]]*(.+)$ ]]; then
   title="${BASH_REMATCH[2]}"
@@ -41,8 +49,10 @@ else
 fi
 shopt -u nocasematch
 
-# Idempotency check: bail out if an open PR for this head branch already exists.
-# `--jq '.[0].number // empty'` returns the first PR's number or an empty string.
+# Check whether an open pull request already exists for this branch.
+# The --jq filter returns the number of the first matching pull
+# request, or an empty string if there is none. If we find one, the
+# script ends here and does not create a new pull request.
 existing="$(gh pr list \
   --repo "$REPO" \
   --head "$BRANCH" \

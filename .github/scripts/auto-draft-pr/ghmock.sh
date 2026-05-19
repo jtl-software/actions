@@ -1,24 +1,28 @@
 #!/usr/bin/env bash
-# Install a `gh` mock for the _test-auto-draft-pr integration workflow.
-# The mock is dropped into a directory that we then prepend to $GITHUB_PATH
-# so subsequent steps in the same job pick it up instead of the real CLI.
+# Install a fake `gh` command for the test workflow. The fake script
+# is placed in its own folder. The folder is then added to the PATH
+# variable for all later steps of the same job, so that any call to
+# `gh` runs the fake script instead of the real one.
 set -euo pipefail
 
 mock_dir="$HOME/mock-bin"
 mkdir -p "$mock_dir"
 
-# `BASH_SOURCE[0]` is this script's path; resolving its directory lets us locate
-# the sibling `ghmock-gh.sh` regardless of the caller's working directory.
+# BASH_SOURCE[0] holds the path to this script. We take its folder so
+# we can find the helper file ghmock-gh.sh that lives next to it.
+# This works no matter from which folder the script is started.
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
-# Stage the mock via a temp file and then atomically rename it into place so
-# a concurrent reader never sees a half-written executable.
+# Copy the fake script to a temporary file first and then rename it
+# to its final name in a single step. This avoids the case where
+# another process reads the file while it is only half written.
 tmp_gh="$(mktemp "${mock_dir}/gh.XXXXXX")"
 cp "${script_dir}/ghmock-gh.sh" "${tmp_gh}"
 mv "${tmp_gh}" "${mock_dir}/gh"
 
 chmod +x "$mock_dir/gh"
 
-# Appending to $GITHUB_PATH makes the directory available on PATH for all
-# subsequent steps in the same job (GitHub Actions reads this file after each step).
+# Writing the folder name into $GITHUB_PATH adds the folder to the
+# PATH variable for all later steps of the same job. GitHub Actions
+# reads this file after every step and updates PATH from it.
 echo "$mock_dir" >> "$GITHUB_PATH"
