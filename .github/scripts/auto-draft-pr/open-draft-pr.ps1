@@ -3,14 +3,14 @@
     Opens a draft pull request when a feature branch is pushed.
 
 .DESCRIPTION
-    Called from the `draft-pr` job in `auto-draft-pr.yaml`. Implements the
-    GitLab "auto-MR" pattern for repositories that migrated from GitLab to
-    GitHub. Skips protected branches and existing PRs before creating.
+    Test-helper mirror of the inline run: block in `auto-draft-pr.yaml`.
+    The production implementation lives inline in the workflow to avoid
+    an external checkout (which would trigger a CodeQL untrusted-checkout
+    alert). This file is kept in sync manually and is exercised by
+    `_test-auto-draft-pr.yaml` to validate the logic independently of a
+    live GitHub Actions run.
 
-    Required environment variables. All of these must be wired explicitly in
-    the calling workflow step's `env:` block; the GitHub Actions runner does
-    not populate any of them automatically under these names. See the
-    `draft-pr` job in `auto-draft-pr.yaml` for the canonical mapping.
+    Required environment variables:
       GH_TOKEN        GitHub token with pull-requests:write and issues:write.
       COMMIT_MSG      Full commit message of the head commit.
       BRANCH          Name of the pushed branch.

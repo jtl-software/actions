@@ -38,16 +38,6 @@ jobs:
       # Required so `gh pr create --assignee <actor>` can attach an assignee.
       issues: write
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          # This reusable workflow runs in the caller's repository context, so
-          # repository and ref must be explicit to fetch the script from
-          # jtl-software/actions at the same commit as the called workflow.
-          repository: jtl-software/actions
-          ref: ${{ github.workflow_sha }}
-          persist-credentials: false
-          sparse-checkout: .github/scripts/auto-draft-pr
-
       - name: Open draft PR
         shell: pwsh
         env:
@@ -57,4 +47,70 @@ jobs:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           ACTOR: ${{ github.actor }}
           REPO: ${{ github.repository }}
-        run: .github/scripts/auto-draft-pr/open-draft-pr.ps1
+        run: |
+          # Fail-fast: cmdlet errors stop the script, and non-zero exit codes
+          # from the `gh` native command propagate as terminating errors. JSON
+          # filtering happens via `gh ... --jq` (built into gh); no separate `jq`
+          # binary is invoked. Equivalent to bash `set -euo pipefail`.
+          # Requires PowerShell 7.4+ ($PSNativeCommandUseErrorActionPreference was
+          # experimental in 7.3), which ships on GitHub-hosted ubuntu-latest runners.
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+
+          # ----- Step 1: skip on protected branches --------------------------
+          # GitLab parity for `rules: if: $CI_COMMIT_REF_PROTECTED == "true"`.
+          # URL-encode the branch name so refs containing slashes (e.g.
+          # `feature/x`) round-trip correctly through the GitHub REST API.
+          $encodedBranch = [uri]::EscapeDataString($env:BRANCH)
+          $isProtected = gh api "repos/$($env:REPO)/branches/$encodedBranch" `
+                            --jq '.protected'
+
+          if ($isProtected -eq 'true') {
+              Write-Host "Branch '$($env:BRANCH)' is protected, skipping auto-draft-PR."
+              exit 0
+          }
+
+          # ----- Step 2: derive PR title from the head commit ----------------
+          # Use the first line of the commit message. If it starts with
+          # `Title:` or `Titel:` (case-insensitive), the trimmed remainder
+          # becomes the PR title. Otherwise fall back to `Draft: <branch>`.
+          # `-split '\r?\n', 2` handles both LF and CRLF line endings and
+          # stops splitting after the first separator for efficiency.
+          $subject = ($env:COMMIT_MSG -split '\r?\n', 2)[0]
+
+          if ($subject -match '^(?:title|titel):\s*(.+)$') {
+              $title = $Matches[1]
+          } else {
+              $title = "Draft: $($env:BRANCH)"
+          }
+
+          # ----- Step 3: idempotency check -----------------------------------
+          # Skip if an open PR with the same head/base already exists. This
+          # makes re-pushes to the same feature branch safe.
+          $existing = gh pr list `
+              --repo  $env:REPO `
+              --head  $env:BRANCH `
+              --base  $env:DEFAULT_BRANCH `
+              --state open `
+              --json  number `
+              --jq    '.[0].number // empty'
+
+          if ($existing) {
+              Write-Host "PR #$existing already exists for '$($env:BRANCH)', skipping."
+              exit 0
+          }
+
+          # ----- Step 4: create the draft PR ---------------------------------
+          # The double-backticks `` produce a literal backtick in the
+          # double-quoted string, so the rendered Markdown wraps the branch
+          # name in a code span.
+          $body = "_Auto-drafted on push to ``$($env:BRANCH)``. Replace this body with details before requesting review._"
+
+          gh pr create `
+              --repo     $env:REPO `
+              --draft `
+              --base     $env:DEFAULT_BRANCH `
+              --head     $env:BRANCH `
+              --title    $title `
+              --body     $body `
+              --assignee $env:ACTOR

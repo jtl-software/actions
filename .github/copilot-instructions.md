@@ -45,7 +45,7 @@ Helper scripts in this repository may be **bash** or **PowerShell**. Choose per 
 
 ## How the auto-draft-pr reusable workflow works
 
-`.github/workflows/auto-draft-pr.yaml` - reusable workflow (`on: workflow_call`). Opens a draft PR when a feature branch is pushed (GitLab auto-MR parity). The caller controls the `on: push` filters; the reusable workflow declares its own permissions and `if:` guard against the default branch. The implementation lives in `.github/scripts/auto-draft-pr/open-draft-pr.ps1`.
+`.github/workflows/auto-draft-pr.yaml` - reusable workflow (`on: workflow_call`). Opens a draft PR when a feature branch is pushed (GitLab auto-MR parity). The caller controls the `on: push` filters; the reusable workflow declares its own permissions and `if:` guard against the default branch. The implementation is inlined directly in the `run:` block of the workflow (to avoid an external checkout that would trigger a CodeQL untrusted-checkout alert). A mirror of the logic lives in `.github/scripts/auto-draft-pr/open-draft-pr.ps1` for unit-testing purposes; keep the two in sync.
 
 Key behaviour:
 
