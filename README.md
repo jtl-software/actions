@@ -15,7 +15,7 @@ This is the public-visibility counterpart to the internal `jtl-software/jtl-plat
 .github/
   actions/<name>/             # Composite actions - public API
     action.yaml
-    *.sh / *.ps1              # Helper scripts called by the action
+    *.sh              # Helper scripts called by the action
   workflows/
     <name>.yaml               # Public reusable workflows
     _lint.yaml                # Internal: actionlint on PRs
@@ -116,7 +116,7 @@ heading.
 ### Adding a Composite Action
 
 1. Create `.github/actions/<name>/action.yaml`.
-2. Add helper scripts in the same directory (shell scripts must pass shellcheck; PowerShell scripts must pass PSScriptAnalyzer where applicable).
+2. Add helper scripts in the same directory (shell scripts must pass shellcheck).
 3. Add an integration test workflow `.github/workflows/_test-<name>.yaml`.
 4. Add documentation to `docs/<name>.md`.
 5. Mention the new action in this README.
