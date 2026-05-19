@@ -1,25 +1,31 @@
 #!/usr/bin/env bash
-# `gh` CLI stand-in for the _test-release integration workflow.
-# Only the `gh api` calls that update-major-tag.sh actually makes are implemented;
-# anything else is a hard error so an untested code path can never go unnoticed.
+# Fake version of the `gh` command used by the test workflow.
+# It only answers the API calls that update-major-tag.sh actually
+# makes. Any other call stops the script with an error, so that we
+# notice right away if the real script starts doing something new
+# that the fake does not cover.
 set -euo pipefail
 
-# Knobs the test workflow flips via env vars to exercise the different branches
-# in update-major-tag.sh (annotated vs lightweight tag, major tag exists or not,
-# transient API errors, ...).
+# Environment variables that the test workflow sets to control the
+# answers of this fake. They let the tests run all the different
+# cases in update-major-tag.sh: annotated or lightweight tag, major
+# tag already exists or not, simulated API errors, and so on.
 MOCK_TAG_TYPE="${MOCK_TAG_TYPE:-lightweight}"
 MOCK_MAJOR_EXISTS="${MOCK_MAJOR_EXISTS:-false}"
 MOCK_MAJOR_TAG_ERROR="${MOCK_MAJOR_TAG_ERROR:-}"
 MOCK_TAG_SHA="${MOCK_TAG_SHA:-aaaa000000000000000000000000000000000000}"
 MOCK_COMMIT_SHA="${MOCK_COMMIT_SHA:-bbbb000000000000000000000000000000000000}"
 
-# We only ever expect `gh api ...`; bail loudly on anything else.
+# This fake only knows the `gh api ...` calls. Stop with an error
+# for any other call.
 [[ "${1:-}" == "api" ]] || { echo "MOCK: unexpected gh subcommand: $*" >&2; exit 1; }
 shift
 
-# Minimal argument parser mirroring the subset of `gh api` flags used in production.
-# `-f` / `-F` carry a value; we discard request fields because the mock answer is
-# driven entirely by the endpoint plus the env knobs above.
+# Small parser for the few `gh api` options that update-major-tag.sh
+# uses. The options -f and -F take a value, so they read the next
+# argument as well. We do not look at the actual values, because the
+# fake answer only depends on the URL and on the environment
+# variables above.
 METHOD="GET"
 ENDPOINT=""
 JQ_FILTER=""
@@ -39,8 +45,9 @@ case "$METHOD" in
   GET)
     case "$ENDPOINT" in
       *git/refs/tags/v*.*.*)
-        # Lookup of the SemVer tag ref. Honor the requested --jq filter so the
-        # caller sees the same shape the real API would return.
+        # Request for the full version tag (vX.Y.Z). We look at the
+        # --jq filter and return the data in the same form as the
+        # real API would.
         tag_type="commit"
         if [[ "$MOCK_TAG_TYPE" == "annotated" ]]; then
           tag_type="tag"
@@ -54,7 +61,8 @@ case "$METHOD" in
         fi
         ;;
       *git/tags/*)
-        # Second hop used to peel an annotated tag object down to its commit.
+        # Second request that follows an annotated tag object down
+        # to the commit it points to.
         if [[ "$JQ_FILTER" == ".object.sha" ]]; then
           printf '%s\n' "$MOCK_COMMIT_SHA"
         else
@@ -62,10 +70,12 @@ case "$METHOD" in
         fi
         ;;
       *git/refs/tags/v*)
-        # Lookup of the rolling major tag (e.g. v1). Three branches:
-        #   1. simulate a transient API error,
-        #   2. simulate the tag already existing (triggers the PATCH path),
-        #   3. simulate a 404 (triggers the POST/create path).
+        # Request for the major tag (for example v1). Three cases:
+        #   1. simulate a temporary API error,
+        #   2. simulate that the tag already exists, which makes the
+        #      real script update it,
+        #   3. simulate that the tag is missing, which makes the
+        #      real script create it.
         if [[ -n "$MOCK_MAJOR_TAG_ERROR" ]]; then
           printf '%s\n' "$MOCK_MAJOR_TAG_ERROR" >&2
           exit 1
@@ -80,12 +90,14 @@ case "$METHOD" in
     esac
     ;;
   PATCH)
-    # Log the call to stderr so the test workflow can assert on it.
+    # Write the call to stderr so the test workflow can check that
+    # it really happened.
     echo "MOCK_GH_PATCH: $ENDPOINT" >&2
     printf '{"ref":"%s","object":{"sha":"%s"}}\n' "$ENDPOINT" "$MOCK_TAG_SHA"
     ;;
   POST)
-    # Log the call to stderr so the test workflow can assert on it.
+    # Write the call to stderr so the test workflow can check that
+    # it really happened.
     echo "MOCK_GH_POST: $ENDPOINT" >&2
     printf '{"ref":"refs/tags/v1","object":{"sha":"%s"}}\n' "$MOCK_TAG_SHA"
     ;;

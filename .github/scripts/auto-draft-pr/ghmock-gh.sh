@@ -1,15 +1,29 @@
 #!/usr/bin/env bash
-# `gh` CLI stand-in for the _test-auto-draft-pr integration workflow.
-# Only the calls open-draft-pr.sh actually makes are implemented; anything else
-# exits 99 so an unexpected call surfaces immediately in CI logs.
+# Fake version of the `gh` command used by the test workflow.
+# It only answers the calls that open-draft-pr.sh actually makes.
+# Any other call exits with code 99, so that an unexpected call shows
+# up clearly in the workflow log.
 set -euo pipefail
 
-# Env knobs flipped by the test workflow:
-#   MOCK_PROTECTED     -> what `gh api repos/.../branches/<name>` returns (true|false)
-#   MOCK_EXISTING_PR   -> what `gh pr list` returns (empty = no existing PR)
+# This fake does not parse the command line flags of `gh` (such as
+# `--jq` or `--json`). It just returns one fixed value per command.
+# That means each environment variable below must already hold the
+# value that the real `gh` would print AFTER the script's jq filter
+# is applied, not the raw API response. If the real script's jq
+# filter changes, the test setup must be updated to match.
+#
+# Environment variables that the test workflow sets to control the
+# answers of this fake:
+#   MOCK_PROTECTED     value returned by
+#                      `gh api repos/.../branches/<name> --jq '.protected'`
+#                      (the string "true" or "false")
+#   MOCK_EXISTING_PR   value returned by
+#                      `gh pr list ... --json number --jq '.[0].number // empty'`
+#                      (an empty value means no pull request is open
+#                      for the branch)
 case "${1:-}" in
   api)
-    # The production script only queries the branches endpoint via `gh api`.
+    # The real script only calls the branches API through `gh api`.
     if [[ "${2:-}" == repos/*/branches/* ]]; then
       echo "${MOCK_PROTECTED:-false}"
       exit 0
@@ -22,7 +36,8 @@ case "${1:-}" in
         exit 0
         ;;
       create)
-        # Echo the full argv so the test can assert on title/body/assignee/...
+        # Print the full command line so the test workflow can check
+        # the title, body, assignee and the other options.
         echo "MOCK_PR_CREATE $*"
         exit 0
         ;;
@@ -30,7 +45,10 @@ case "${1:-}" in
     ;;
 esac
 
-# Exit 99 (not 1) makes accidental real calls easy to distinguish from the
-# normal "expected gh failure" exit codes the script under test handles.
+# Use exit code 99 here. The real script runs with `set -euo pipefail`
+# and expects every `gh` call to succeed, so any non-zero exit code
+# would stop the script. We pick 99 (a value that real `gh` never
+# returns on its own) so the workflow log clearly shows that the
+# failure came from this fake script and not from a real `gh` call.
 echo "UNEXPECTED gh call: $*" >&2
 exit 99
