@@ -37,7 +37,6 @@ Helper scripts in this repository should be **bash**.
 
 - Bash: enforce `set -euo pipefail`, must pass shellcheck via `_lint.yaml`.
 
-
 ## How the auto-draft-pr reusable workflow works
 
 `.github/workflows/auto-draft-pr.yaml` - reusable workflow (`on: workflow_call`). Opens a draft PR when a feature branch is pushed (GitLab auto-MR parity). The caller controls the `on: push` filters; the reusable workflow declares its own permissions and `if:` guard against the default branch. The implementation lives in `.github/scripts/auto-draft-pr/open-draft-pr.sh`.
