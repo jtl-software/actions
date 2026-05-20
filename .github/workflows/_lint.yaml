@@ -11,10 +11,14 @@ on:
   push:
     branches: [main]
     paths:
-      - '.github/**'
+      - '.github/**/*.yaml'
+      - '.github/**/*.yml'
+      - '.github/**/*.sh'
   pull_request:
     paths:
-      - '.github/**'
+      - '.github/**/*.yaml'
+      - '.github/**/*.yml'
+      - '.github/**/*.sh'
 
 # Cancel an in-flight run for the same PR when a new push lands, but never
 # cancel pushes to main (so every commit on main gets its own green check).
