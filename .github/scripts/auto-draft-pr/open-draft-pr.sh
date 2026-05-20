@@ -40,11 +40,14 @@ fi
 #
 # How the function works:
 #
-#   1. It walks the input string one byte at a time. Bash strings are
-#      byte-based, not character-based, so `${string:i:1}` reads one
-#      byte. UTF-8 multi-byte characters get encoded as several %XX
-#      escapes (one per byte), which is exactly what RFC 3986 asks
-#      for.
+#   1. It walks the input string one byte at a time. To make bash
+#      treat the string as raw bytes (and not as a sequence of UTF-8
+#      characters), the function sets `LC_ALL=C` for its own scope.
+#      Without this, on a runner with `LANG=C.UTF-8`, `${#string}`
+#      and `${string:i:1}` would work on characters, and the
+#      `printf '%%%02X' "'X"` trick would print the Unicode code
+#      point of a multi-byte character (one `%XX`) instead of the
+#      UTF-8 bytes (one `%XX` per byte) that RFC 3986 asks for.
 #
 #   2. The "unreserved" character set from RFC 3986 (letters, digits,
 #      and the four punctuation marks `.`, `~`, `_`, `-`) is kept as
@@ -65,6 +68,7 @@ fi
 #   f e a t u r e %2F f o o %20 b a r
 # joined into the string "feature%2Ffoo%20bar".
 url_encode() {
+  local LC_ALL=C
   local string="$1"
   local encoded=""
   local i char
