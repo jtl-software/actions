@@ -1,0 +1,20 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "actionlint",
+      "type": "shell",
+      "command": "actionlint",
+      "group": "test",
+      "presentation": { "reveal": "always" },
+      "problemMatcher": {
+        "owner": "actionlint",
+        "fileLocation": ["relative", "${workspaceFolder}"],
+        "pattern": {
+          "regexp": "^(.+):(\\d+):(\\d+): (.+)$",
+          "file": 1, "line": 2, "column": 3, "message": 4
+        }
+      }
+    }
+  ]
+}
