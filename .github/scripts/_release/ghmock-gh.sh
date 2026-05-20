@@ -18,14 +18,17 @@ MOCK_COMMIT_SHA="${MOCK_COMMIT_SHA:-bbbb000000000000000000000000000000000000}"
 
 # This fake only knows the `gh api ...` calls. Make sure we got a
 # subcommand at all before we look at $1, and then reject anything
-# other than `api`.
+# other than `api`. Unknown calls exit with code 99 (a value the real
+# `gh` never returns) so the workflow log clearly shows that the
+# failure came from this fake script and not from a real `gh` call.
+# This matches the convention used by the auto-draft-pr mock.
 if [[ $# -eq 0 ]]; then
   echo "MOCK: gh needs 'api' as first argument; nothing was provided" >&2
-  exit 1
+  exit 99
 fi
 if [[ "$1" != "api" ]]; then
   echo "MOCK: unexpected gh subcommand: $*" >&2
-  exit 1
+  exit 99
 fi
 shift
 
@@ -94,7 +97,7 @@ case "$METHOD" in
           exit 1
         fi
         ;;
-      *) echo "MOCK: unhandled GET $ENDPOINT" >&2; exit 1 ;;
+      *) echo "MOCK: unhandled GET $ENDPOINT" >&2; exit 99 ;;
     esac
     ;;
   PATCH)
@@ -111,6 +114,6 @@ case "$METHOD" in
     ;;
   *)
     echo "MOCK: unhandled method $METHOD $ENDPOINT" >&2
-    exit 1
+    exit 99
     ;;
 esac
