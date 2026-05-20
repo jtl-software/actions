@@ -10,8 +10,14 @@ if [[ $# -ne 1 ]]; then
   exit 1
 fi
 
-: "${GH_TOKEN:?GH_TOKEN is required}"
-: "${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is required}"
+if [[ ! -v GH_TOKEN ]] || [[ -z "$GH_TOKEN" ]]; then
+  echo "GH_TOKEN is required" >&2
+  exit 1
+fi
+if [[ ! -v GITHUB_REPOSITORY ]] || [[ -z "$GITHUB_REPOSITORY" ]]; then
+  echo "GITHUB_REPOSITORY is required" >&2
+  exit 1
+fi
 
 tag="$1"
 
@@ -40,12 +46,14 @@ echo "Resolved commit: ${sha}."
 
 # Check whether the major tag already exists. The gh command returns
 # an error when the tag is missing (HTTP 404). The script normally
-# stops on any error, so we turn that behavior off for one command,
-# read both the output and the exit code, and then turn it back on.
-set +e
-check_output="$(gh api "repos/${GITHUB_REPOSITORY}/git/refs/tags/${major}" 2>&1)"
-check_exit=$?
-set -e
+# stops on any error, but a command whose exit code is tested by an
+# `if` is allowed to fail without aborting the script. We use that to
+# capture both the output and the exit code in a controlled way.
+if check_output="$(gh api "repos/${GITHUB_REPOSITORY}/git/refs/tags/${major}" 2>&1)"; then
+  check_exit=0
+else
+  check_exit=$?
+fi
 
 # A 404 means "the tag does not exist yet" and is the expected case
 # for a new major version. Any other error (for example a network

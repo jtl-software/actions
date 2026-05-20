@@ -16,9 +16,17 @@ MOCK_MAJOR_TAG_ERROR="${MOCK_MAJOR_TAG_ERROR:-}"
 MOCK_TAG_SHA="${MOCK_TAG_SHA:-aaaa000000000000000000000000000000000000}"
 MOCK_COMMIT_SHA="${MOCK_COMMIT_SHA:-bbbb000000000000000000000000000000000000}"
 
-# This fake only knows the `gh api ...` calls. Stop with an error
-# for any other call.
-[[ "${1:-}" == "api" ]] || { echo "MOCK: unexpected gh subcommand: $*" >&2; exit 1; }
+# This fake only knows the `gh api ...` calls. Make sure we got a
+# subcommand at all before we look at $1, and then reject anything
+# other than `api`.
+if [[ $# -eq 0 ]]; then
+  echo "MOCK: gh needs 'api' as first argument; nothing was provided" >&2
+  exit 1
+fi
+if [[ "$1" != "api" ]]; then
+  echo "MOCK: unexpected gh subcommand: $*" >&2
+  exit 1
+fi
 shift
 
 # Small parser for the few `gh api` options that update-major-tag.sh
@@ -29,7 +37,7 @@ shift
 METHOD="GET"
 ENDPOINT=""
 JQ_FILTER=""
-while [[ $# -gt 0 ]]; do
+while (( $# )); do
   case "$1" in
     --method)        METHOD="$2"; shift 2 ;;
     -f|--field)      shift 2 ;;
