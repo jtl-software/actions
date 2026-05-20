@@ -58,7 +58,8 @@ case "$METHOD" in
       *git/refs/tags/v*.*.*)
         # Request for the full version tag (vX.Y.Z). We look at the
         # --jq filter and return the data in the same form as the
-        # real API would.
+        # real API would. The combined filter is what the real script
+        # uses to fetch sha and type in a single call.
         tag_type="commit"
         if [[ "$MOCK_TAG_TYPE" == "annotated" ]]; then
           tag_type="tag"
@@ -67,6 +68,8 @@ case "$METHOD" in
           printf '%s\n' "$MOCK_TAG_SHA"
         elif [[ "$JQ_FILTER" == ".object.type" ]]; then
           printf '%s\n' "$tag_type"
+        elif [[ "$JQ_FILTER" == '"\(.object.sha) \(.object.type)"' ]]; then
+          printf '%s %s\n' "$MOCK_TAG_SHA" "$tag_type"
         else
           printf '{"object":{"sha":"%s","type":"%s"}}\n' "$MOCK_TAG_SHA" "$tag_type"
         fi

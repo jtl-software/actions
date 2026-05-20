@@ -35,9 +35,15 @@ echo "Rolling ${major} to ${tag}."
 # points directly at the commit. An annotated tag points at a tag
 # object first, which then points at the commit. For annotated tags
 # we need a second API call to follow that chain down to the commit.
+# The combined --jq filter returns both fields from the same response
+# on one line, separated by a space; `read` then splits them into two
+# variables. This keeps the call count to one for lightweight tags
+# and at most two for annotated tags. We use a here-string (<<<) and
+# not process substitution so that a failing `gh api` still aborts the
+# script under `set -e`.
 tag_ref_endpoint="repos/${GITHUB_REPOSITORY}/git/refs/tags/${tag}"
-sha="$(gh api "$tag_ref_endpoint" --jq '.object.sha')"
-object_type="$(gh api "$tag_ref_endpoint" --jq '.object.type')"
+tag_ref_line="$(gh api "$tag_ref_endpoint" --jq '"\(.object.sha) \(.object.type)"')"
+read -r sha object_type <<< "$tag_ref_line"
 if [[ "$object_type" == "tag" ]]; then
   sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${sha}" --jq '.object.sha')"
 fi
