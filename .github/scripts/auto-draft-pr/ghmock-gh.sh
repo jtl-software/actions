@@ -21,7 +21,15 @@ set -euo pipefail
 #                      `gh pr list ... --json number --jq '.[0].number // empty'`
 #                      (an empty value means no pull request is open
 #                      for the branch)
-case "${1:-}" in
+
+# Make sure we got a subcommand at all before we look at $1. Without
+# this guard the script would crash on `$1` because of `set -u`.
+if [[ $# -eq 0 ]]; then
+  echo "MOCK: gh needs either 'api' or 'pr' as first argument; nothing was provided" >&2
+  exit 99
+fi
+
+case "$1" in
   api)
     # The real script only calls the branches API through `gh api`.
     if [[ "${2:-}" == repos/*/branches/* ]]; then

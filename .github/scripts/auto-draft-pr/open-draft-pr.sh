@@ -5,14 +5,32 @@
 set -euo pipefail
 
 # All inputs come from environment variables set by the workflow that
-# runs this script. If any of them is missing or empty, the next lines
-# stop the script with a clear error message.
-: "${GH_TOKEN:?GH_TOKEN is required}"
-: "${COMMIT_MSG:?COMMIT_MSG is required}"
-: "${BRANCH:?BRANCH is required}"
-: "${DEFAULT_BRANCH:?DEFAULT_BRANCH is required}"
-: "${ACTOR:?ACTOR is required}"
-: "${REPO:?REPO is required}"
+# runs this script. If any of them is missing or empty, stop the
+# script with a clear error message that names the missing variable.
+if [[ ! -v GH_TOKEN ]] || [[ -z "$GH_TOKEN" ]]; then
+  echo "GH_TOKEN is required" >&2
+  exit 1
+fi
+if [[ ! -v COMMIT_MSG ]] || [[ -z "$COMMIT_MSG" ]]; then
+  echo "COMMIT_MSG is required" >&2
+  exit 1
+fi
+if [[ ! -v BRANCH ]] || [[ -z "$BRANCH" ]]; then
+  echo "BRANCH is required" >&2
+  exit 1
+fi
+if [[ ! -v DEFAULT_BRANCH ]] || [[ -z "$DEFAULT_BRANCH" ]]; then
+  echo "DEFAULT_BRANCH is required" >&2
+  exit 1
+fi
+if [[ ! -v ACTOR ]] || [[ -z "$ACTOR" ]]; then
+  echo "ACTOR is required" >&2
+  exit 1
+fi
+if [[ ! -v REPO ]] || [[ -z "$REPO" ]]; then
+  echo "REPO is required" >&2
+  exit 1
+fi
 
 # Branch names can contain slashes and other characters that are not
 # safe inside a URL. The url_encode helper rewrites them so the branch

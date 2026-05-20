@@ -8,16 +8,18 @@ set -euo pipefail
 mock_dir="$HOME/gh-mock"
 mkdir -p "$mock_dir"
 
-# BASH_SOURCE[0] holds the path to this script. We take its folder so
-# we can find the helper file ghmock-gh.sh that lives next to it.
-# This works no matter from which folder the script is started.
-script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# Find the folder of this script so we can locate ghmock-gh.sh that
+# lives next to it. We resolve it to an absolute path so the value
+# stays correct even if anything later changes the working directory.
+this_script="${BASH_SOURCE[0]}"
+script_relativedir="$(dirname -- "$this_script")"
+script_absolutedir="$(cd -- "$script_relativedir" && pwd)"
 
 # Copy the fake script to a temporary file first and then rename it
 # to its final name in a single step. This avoids the case where
 # another process reads the file while it is only half written.
 tmp_gh="$(mktemp "${mock_dir}/gh.XXXXXX")"
-cp "${script_dir}/ghmock-gh.sh" "${tmp_gh}"
+cp "${script_absolutedir}/ghmock-gh.sh" "${tmp_gh}"
 mv "${tmp_gh}" "${mock_dir}/gh"
 
 chmod +x "$mock_dir/gh"
