@@ -33,6 +33,9 @@ case "$1" in
   api)
     # The real script only calls the branches API through `gh api`.
     if [[ "${2:-}" == repos/*/branches/* ]]; then
+      # Log the full API path so tests can assert that url_encode
+      # produced the correct percent escapes for the branch name.
+      echo "MOCK_GH_API_PATH: $2" >&2
       echo "${MOCK_PROTECTED:-false}"
       exit 0
     fi

@@ -2,12 +2,14 @@
 # Workflows prefixed with `_` are internal to this repository.
 #
 # This workflow exercises `open-draft-pr.sh` against a mocked `gh` CLI.
-# Five code paths:
+# Seven code paths:
 #   1. Protected branch -> skip
 #   2. Existing open PR -> skip (idempotency)
 #   3. Titel-prefix (German) in commit message -> extracted title, PR created
 #   4. Title-prefix (English) in commit message -> extracted title, PR created
 #   5. No title/Titel prefix -> Draft: <branch> fallback title, PR created
+#   6. url_encode: slash in branch name -> percent-encoded in API path
+#   7. url_encode: multi-byte UTF-8 in branch name -> byte-wise percent-encoded
 
 name: Test auto-draft-pr
 
@@ -216,3 +218,73 @@ jobs:
           set -euo pipefail
           grep -q "MOCK_PR_CREATE" output.txt
           grep -q -- "--title Draft: feature/foo" output.txt
+
+  test-url-encode-slash:
+    name: url_encode => slash in branch name is percent-encoded
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts/auto-draft-pr
+
+      - name: Setup mock gh
+        shell: bash
+        run: .github/scripts/auto-draft-pr/ghmock.sh
+
+      - name: Run with a branch name containing a slash
+        shell: bash
+        env:
+          GH_TOKEN: dummy
+          COMMIT_MSG: 'Just a regular commit'
+          BRANCH: 'feature/foo'
+          DEFAULT_BRANCH: master
+          ACTOR: test-user
+          REPO: owner/repo
+          # Marking the branch as protected makes the script exit
+          # right after the branches API call. No PR list or create
+          # call follows, which keeps this test focused on the URL
+          # that url_encode produced.
+          MOCK_PROTECTED: 'true'
+          MOCK_EXISTING_PR: ''
+        run: .github/scripts/auto-draft-pr/open-draft-pr.sh 2>&1 | tee output.txt > /dev/null
+
+      - name: Assert branches API was called with percent-encoded slash
+        run: |
+          set -euo pipefail
+          grep -q "MOCK_GH_API_PATH: repos/owner/repo/branches/feature%2Ffoo" output.txt
+
+  test-url-encode-utf8:
+    name: url_encode => UTF-8 in branch name is percent-encoded byte-by-byte
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts/auto-draft-pr
+
+      - name: Setup mock gh
+        shell: bash
+        run: .github/scripts/auto-draft-pr/ghmock.sh
+
+      - name: Run with a branch name containing UTF-8 characters
+        shell: bash
+        env:
+          GH_TOKEN: dummy
+          COMMIT_MSG: 'Just a regular commit'
+          BRANCH: 'feature/foo-ä'
+          DEFAULT_BRANCH: master
+          ACTOR: test-user
+          REPO: owner/repo
+          MOCK_PROTECTED: 'true'
+          MOCK_EXISTING_PR: ''
+        run: .github/scripts/auto-draft-pr/open-draft-pr.sh 2>&1 | tee output.txt > /dev/null
+
+      - name: Assert branches API was called with byte-wise encoded UTF-8
+        run: |
+          set -euo pipefail
+          # 'ä' in UTF-8 is the byte sequence 0xC3 0xA4, which
+          # url_encode turns into the two percent escapes %C3%A4.
+          grep -q "MOCK_GH_API_PATH: repos/owner/repo/branches/feature%2Ffoo-%C3%A4" output.txt
